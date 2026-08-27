@@ -12,6 +12,7 @@ import { createMessagesRouter } from "./messages.js";
 import { createAdminRouter } from "./admin.js";
 import { registerSocketHandlers } from "./socket.js";
 import { ensureBootstrapAdmin } from "./store.js";
+import { getLanAddresses, startDiscoveryResponder } from "./discovery.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 4000;
@@ -39,6 +40,12 @@ const bootstrapAdmin = ensureBootstrapAdmin();
 
 server.listen(PORT, () => {
   console.log(`Deskop server listening on http://0.0.0.0:${PORT}`);
+  const lanAddresses = getLanAddresses();
+  if (lanAddresses.length > 0) {
+    console.log(`Staff on the same network can connect at:`);
+    for (const addr of lanAddresses) console.log(`  http://${addr}:${PORT}`);
+    console.log(`(The desktop app auto-discovers this — staff on the same WiFi/LAN just click "Join".)`);
+  }
   if (bootstrapAdmin) {
     console.log(`No staff accounts found — created a default admin login:`);
     console.log(`  username: ${bootstrapAdmin.username}`);
@@ -49,3 +56,9 @@ server.listen(PORT, () => {
     console.log(`Connection password is required for all clients.`);
   }
 });
+
+try {
+  startDiscoveryResponder(PORT, "Deskop Office Server");
+} catch (err) {
+  console.warn(`Could not start LAN discovery responder: ${err.message}`);
+}

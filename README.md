@@ -36,7 +36,7 @@ npm run server
 ```
 
 It listens on port 4000 by default (`PORT=xxxx npm run server` to change it). Note the machine's
-LAN IP (e.g. `192.168.1.10`) — staff will point the app at `http://192.168.1.10:4000`.
+LAN IP — but staff shouldn't need this; see below.
 
 ## Run the app (per staff laptop)
 
@@ -44,12 +44,16 @@ LAN IP (e.g. `192.168.1.10`) — staff will point the app at `http://192.168.1.1
 npm run app
 ```
 
-This starts the Vite dev server and opens the Electron window. On first launch:
+This starts the Vite dev server and opens the Electron window. On first launch, the app
+auto-discovers the office server over the LAN (a lightweight UDP broadcast, no config needed on
+either side) and lists it with a **Join** button — no IP address to find or type. It also
+auto-fills the username field from the signed-in Windows account, so on a matching account
+staff just enter their passcode and sign in.
 
-1. Pick how you're connecting — **Localhost** (server on this same machine), **WiFi/LAN**
-   (type the office server's LAN address, e.g. `http://192.168.1.10:4000`), or **Online** (a
-   `https://` address plus a connection password, if the server has one set — see below).
-2. Sign in with a username and password.
+If nothing turns up (different subnet, firewalled network, or connecting from outside the
+office), a **Connect manually** link reveals the old picker — **Localhost**, **WiFi/LAN** (type
+an address), or **Online** (a `https://` address plus a connection password, if the server has
+one set — see below).
 
 The very first time the server ever runs (empty `server/data/staff.json`), it creates a
 default admin account and prints the credentials to the console:

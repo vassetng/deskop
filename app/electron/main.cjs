@@ -1,5 +1,10 @@
 const { app, BrowserWindow, Notification, ipcMain } = require("electron");
 const path = require("path");
+const os = require("os");
+const dgram = require("dgram");
+
+const DISCOVERY_PORT = 41234;
+const DISCOVERY_REQUEST = "DESKOP_DISCOVER";
 
 let mainWindow;
 
@@ -31,6 +36,45 @@ function createWindow() {
 
 ipcMain.on("notify", (_event, { title, body }) => {
   new Notification({ title, body }).show();
+});
+
+ipcMain.handle("get-os-username", () => {
+  try {
+    return os.userInfo().username;
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle("discover-servers", () => {
+  return new Promise((resolve) => {
+    const socket = dgram.createSocket("udp4");
+    const found = new Map();
+
+    socket.on("message", (msg, rinfo) => {
+      try {
+        const { name, port } = JSON.parse(msg.toString());
+        found.set(`${rinfo.address}:${port}`, { name, address: rinfo.address, port });
+      } catch {
+        // ignore malformed replies
+      }
+    });
+
+    socket.on("error", () => {
+      // discovery is best-effort; failures just mean an empty result
+    });
+
+    socket.bind(() => {
+      socket.setBroadcast(true);
+      const message = Buffer.from(DISCOVERY_REQUEST);
+      socket.send(message, DISCOVERY_PORT, "255.255.255.255");
+    });
+
+    setTimeout(() => {
+      socket.close();
+      resolve(Array.from(found.values()));
+    }, 1500);
+  });
 });
 
 app.whenReady().then(createWindow);
