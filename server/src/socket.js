@@ -72,6 +72,46 @@ export function registerSocketHandlers(io) {
       })
     );
 
+    // --- Call ringing: a call must be explicitly accepted before any
+    // WebRTC negotiation happens. invite/accept/decline/cancel are plain
+    // relays with no media involved; only after "call:accept" does the
+    // caller proceed to the real offer/answer/ice exchange below.
+    socket.on(
+      "call:invite",
+      safe(({ to, video } = {}) => {
+        if (!to) return;
+        io.to(`staff:${to}`).emit("call:invite", {
+          from: staff.id,
+          fromName: staff.displayName,
+          video: !!video,
+        });
+      })
+    );
+
+    socket.on(
+      "call:accept",
+      safe(({ to } = {}) => {
+        if (!to) return;
+        io.to(`staff:${to}`).emit("call:accept", { from: staff.id });
+      })
+    );
+
+    socket.on(
+      "call:decline",
+      safe(({ to } = {}) => {
+        if (!to) return;
+        io.to(`staff:${to}`).emit("call:decline", { from: staff.id });
+      })
+    );
+
+    socket.on(
+      "call:cancel",
+      safe(({ to } = {}) => {
+        if (!to) return;
+        io.to(`staff:${to}`).emit("call:cancel", { from: staff.id });
+      })
+    );
+
     // --- WebRTC signaling relay (1:1 calls), targeted by staffId ---
     socket.on(
       "call:offer",

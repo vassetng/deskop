@@ -3,6 +3,8 @@ import Login from "./components/Login";
 import Roster, { StaffMember } from "./components/Roster";
 import RingModal from "./components/RingModal";
 import RingComposeModal from "./components/RingComposeModal";
+import IncomingCallModal from "./components/IncomingCallModal";
+import OutgoingCallModal from "./components/OutgoingCallModal";
 import Files from "./components/Files";
 import Directory from "./components/Directory";
 import Messages from "./components/Messages";
@@ -17,6 +19,8 @@ import logo from "./assets/logo.png";
 type IncomingRing = { fromId: string; fromName: string; message: string };
 type RingTarget = { id: string; name: string };
 type ActiveCall = { session: CallSession; peerId: string; peerName: string };
+type OutgoingCall = { id: string; name: string; withVideo: boolean };
+type IncomingCallInvite = { fromId: string; fromName: string; withVideo: boolean };
 type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
 type Tab = "files" | "directory" | "messages" | "report" | "admin";
 
@@ -39,6 +43,10 @@ export default function App() {
   const ringAudioRef = useRef<HTMLAudioElement | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const activeCallRef = useRef<ActiveCall | null>(null);
+  const [outgoingCall, setOutgoingCall] = useState<OutgoingCall | null>(null);
+  const outgoingCallRef = useRef<OutgoingCall | null>(null);
+  const [incomingCallInvite, setIncomingCallInvite] = useState<IncomingCallInvite | null>(null);
+  const callAudioRef = useRef<HTMLAudioElement | null>(null);
   const [tab, setTab] = useState<Tab>("files");
   const [messagesTarget, setMessagesTarget] = useState<Conversation | null>(null);
 
@@ -48,6 +56,24 @@ export default function App() {
   function updateActiveCall(next: ActiveCall | null) {
     activeCallRef.current = next;
     setActiveCall(next);
+  }
+
+  function updateOutgoingCall(next: OutgoingCall | null) {
+    outgoingCallRef.current = next;
+    setOutgoingCall(next);
+  }
+
+  function stopCallTone() {
+    callAudioRef.current?.pause();
+    callAudioRef.current = null;
+  }
+
+  function playCallTone() {
+    callAudioRef.current?.pause();
+    const audio = new Audio(`${import.meta.env.BASE_URL}ring.wav`);
+    audio.loop = true;
+    callAudioRef.current = audio;
+    audio.play().catch((err) => console.warn("Ring tone blocked:", err.message));
   }
 
   const remoteVideoElRef = useRef<HTMLVideoElement | null>(null);
@@ -82,6 +108,9 @@ export default function App() {
   // implement renegotiation, so tracks added afterward never reach the
   // other side. That means CallView (which mounts once updateActiveCall
   // runs) must not appear until start() has already resolved.
+  //
+  // This only runs once the other side has explicitly accepted an
+  // invite (see call:accept below) — calls no longer auto-connect.
   async function startOutgoingCall(peerId: string, withVideo: boolean) {
     const session = createSession(peerId);
     try {
@@ -90,6 +119,7 @@ export default function App() {
       console.error("Could not access camera/microphone", err);
       setCallError("Couldn't access your camera/microphone. Check permissions and try again.");
       session.close();
+      getSocket().emit("call:hangup", { to: peerId });
       return;
     }
     updateActiveCall({ session, peerId, peerName: nameFor(peerId) });
@@ -122,7 +152,12 @@ export default function App() {
         setIncomingRing({ fromId: from.id, fromName: from.name, message: message || "" });
         window.deskop?.notify("Deskop", `${from.name} is asking for you${message ? `: ${message}` : ""}`);
         ringAudioRef.current?.pause();
-        const audio = new Audio("/ring.wav");
+        // A hardcoded "/ring.wav" resolves against the filesystem root once
+        // packaged (Electron loads the built app via file://, not an http
+        // origin), silently failing to load. import.meta.env.BASE_URL
+        // respects vite's configured base ("./") and resolves correctly in
+        // both dev and the packaged app.
+        const audio = new Audio(`${import.meta.env.BASE_URL}ring.wav`);
         audio.loop = true;
         ringAudioRef.current = audio;
         audio.play().catch((err) => console.warn("Ring tone blocked:", err.message));
@@ -133,6 +168,10 @@ export default function App() {
       setRingAckToast(`${from.name} saw your ring.`);
     });
 
+    // A call must be accepted before any media/SDP negotiation happens.
+    // call:offer only ever arrives after the callee already accepted (see
+    // call:accept handling in handleAcceptCall), so local media is already
+    // being acquired there — this just completes the actual negotiation.
     socket.on(
       "call:offer",
       async ({
@@ -145,6 +184,13 @@ export default function App() {
         offer: RTCSessionDescriptionInit;
         video: boolean;
       }) => {
+        const current = activeCallRef.current;
+        if (current && current.peerId === from) {
+          await current.session.handleOffer(offer);
+          return;
+        }
+        // Fallback: an offer arrived without a prior accepted invite on this
+        // client (e.g. reload mid-call) — still requires local media first.
         const session = createSession(from);
         try {
           await session.start(video);
@@ -176,6 +222,43 @@ export default function App() {
     socket.on("call:hangup", () => {
       activeCallRef.current?.session.close();
       updateActiveCall(null);
+    });
+
+    // --- Ringing before connecting: invite → accept/decline/cancel ---
+    socket.on(
+      "call:invite",
+      ({ from, fromName, video }: { from: string; fromName: string; video: boolean }) => {
+        // Already on a call or already have a pending invite/outgoing call: busy.
+        if (activeCallRef.current || outgoingCallRef.current) {
+          getSocket().emit("call:decline", { to: from });
+          return;
+        }
+        setIncomingCallInvite({ fromId: from, fromName, withVideo: video });
+        window.deskop?.notify("Deskop", `${fromName} is ${video ? "video " : ""}calling you`);
+        playCallTone();
+      }
+    );
+
+    socket.on("call:accept", async ({ from }: { from: string }) => {
+      const pending = outgoingCallRef.current;
+      if (!pending || pending.id !== from) return;
+      updateOutgoingCall(null);
+      await startOutgoingCall(pending.id, pending.withVideo);
+    });
+
+    socket.on("call:decline", ({ from }: { from: string }) => {
+      const pending = outgoingCallRef.current;
+      if (!pending || pending.id !== from) return;
+      updateOutgoingCall(null);
+      setCallError(`${nameFor(from)} declined the call.`);
+    });
+
+    socket.on("call:cancel", ({ from }: { from: string }) => {
+      setIncomingCallInvite((current) => {
+        if (!current || current.fromId !== from) return current;
+        stopCallTone();
+        return null;
+      });
     });
   }, []);
 
@@ -214,6 +297,11 @@ export default function App() {
     setStaff(null);
     setRoster([]);
     setTab("files");
+    activeCallRef.current?.session.close();
+    updateActiveCall(null);
+    updateOutgoingCall(null);
+    setIncomingCallInvite(null);
+    stopCallTone();
   }
 
   function handleRing(targetId: string) {
@@ -226,8 +314,42 @@ export default function App() {
     setRingTarget(null);
   }
 
-  async function handleCall(targetId: string, withVideo: boolean) {
-    await startOutgoingCall(targetId, withVideo);
+  function handleCall(targetId: string, withVideo: boolean) {
+    if (activeCall || outgoingCall || incomingCallInvite) return;
+    updateOutgoingCall({ id: targetId, name: nameFor(targetId), withVideo });
+    getSocket().emit("call:invite", { to: targetId, video: withVideo });
+  }
+
+  function handleCancelOutgoingCall() {
+    if (!outgoingCall) return;
+    getSocket().emit("call:cancel", { to: outgoingCall.id });
+    updateOutgoingCall(null);
+  }
+
+  async function handleAcceptCall() {
+    if (!incomingCallInvite) return;
+    const { fromId, withVideo } = incomingCallInvite;
+    setIncomingCallInvite(null);
+    stopCallTone();
+    const session = createSession(fromId);
+    try {
+      await session.start(withVideo);
+    } catch (err) {
+      console.error("Could not access camera/microphone for incoming call", err);
+      setCallError("Couldn't answer — camera/microphone access failed.");
+      session.close();
+      getSocket().emit("call:decline", { to: fromId });
+      return;
+    }
+    updateActiveCall({ session, peerId: fromId, peerName: nameFor(fromId) });
+    getSocket().emit("call:accept", { to: fromId });
+  }
+
+  function handleDeclineCall() {
+    if (!incomingCallInvite) return;
+    getSocket().emit("call:decline", { to: incomingCallInvite.fromId });
+    stopCallTone();
+    setIncomingCallInvite(null);
   }
 
   function handleAcknowledgeRing() {
@@ -279,7 +401,13 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        <Roster roster={roster} selfId={staff.id} onRing={handleRing} onCall={handleCall} busy={!!activeCall} />
+        <Roster
+          roster={roster}
+          selfId={staff.id}
+          onRing={handleRing}
+          onCall={handleCall}
+          busy={!!activeCall || !!outgoingCall || !!incomingCallInvite}
+        />
         <div className="main-panel">
           {activeCall ? (
             <CallView
@@ -340,6 +468,23 @@ export default function App() {
           targetName={ringTarget.name}
           onSend={handleSendRing}
           onCancel={() => setRingTarget(null)}
+        />
+      )}
+
+      {incomingCallInvite && (
+        <IncomingCallModal
+          fromName={incomingCallInvite.fromName}
+          withVideo={incomingCallInvite.withVideo}
+          onAccept={handleAcceptCall}
+          onDecline={handleDeclineCall}
+        />
+      )}
+
+      {outgoingCall && (
+        <OutgoingCallModal
+          toName={outgoingCall.name}
+          withVideo={outgoingCall.withVideo}
+          onCancel={handleCancelOutgoingCall}
         />
       )}
 
