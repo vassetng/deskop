@@ -1,18 +1,17 @@
 import { io, Socket } from "socket.io-client";
+import { getServerUrl, getToken, getConnectionPassword } from "./auth";
 
 let socket: Socket | null = null;
 
-export function getServerUrl(): string {
-  return localStorage.getItem("deskop:serverUrl") || "http://localhost:4000";
-}
-
-export function setServerUrl(url: string) {
-  localStorage.setItem("deskop:serverUrl", url);
-}
-
 export function connectSocket(): Socket {
   if (socket) return socket;
-  socket = io(getServerUrl(), { transports: ["websocket", "polling"] });
+  socket = io(getServerUrl(), {
+    transports: ["websocket", "polling"],
+    auth: {
+      token: getToken(),
+      connectionPassword: getConnectionPassword(),
+    },
+  });
   return socket;
 }
 

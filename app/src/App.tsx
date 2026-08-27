@@ -3,25 +3,30 @@ import Login from "./components/Login";
 import Roster, { StaffMember } from "./components/Roster";
 import RingModal from "./components/RingModal";
 import Files from "./components/Files";
+import Directory from "./components/Directory";
+import Messages from "./components/Messages";
 import DailyReport from "./components/DailyReport";
-import AdminReports from "./components/AdminReports";
+import AdminDashboard from "./components/AdminDashboard";
 import CallView from "./components/CallView";
 import { connectSocket, disconnectSocket, getSocket } from "./lib/socket";
+import { getSession, logout, Staff } from "./lib/auth";
 import { CallSession } from "./lib/webrtc";
 import logo from "./assets/logo.png";
 
 type IncomingRing = { fromId: string; fromName: string };
 type ActiveCall = { session: CallSession; peerId: string; peerName: string };
-type Tab = "files" | "report" | "admin";
+type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
+type Tab = "files" | "directory" | "messages" | "report" | "admin";
 
 export default function App() {
-  const [selfName, setSelfName] = useState<string | null>(null);
-  const [selfId, setSelfId] = useState<string | null>(null);
+  const [staff, setStaff] = useState<Staff | null>(getSession()?.staff ?? null);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [roster, setRoster] = useState<StaffMember[]>([]);
   const [incomingRing, setIncomingRing] = useState<IncomingRing | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const activeCallRef = useRef<ActiveCall | null>(null);
   const [tab, setTab] = useState<Tab>("files");
+  const [messagesTarget, setMessagesTarget] = useState<Conversation | null>(null);
 
   const rosterRef = useRef<StaffMember[]>([]);
   rosterRef.current = roster;
@@ -41,8 +46,8 @@ export default function App() {
     }
   }, []);
 
-  function nameFor(id: string): string {
-    return rosterRef.current.find((s) => s.id === id)?.name || "Someone";
+  function nameFor(staffId: string): string {
+    return rosterRef.current.find((s) => s.id === staffId)?.name || "Someone";
   }
 
   function startCall(peerId: string) {
@@ -60,26 +65,40 @@ export default function App() {
     return session;
   }
 
-  const handleJoin = useCallback((name: string, _serverUrl: string) => {
+  const beginSession = useCallback(() => {
     const socket = connectSocket();
-    socket.on("connect", () => {
-      setSelfId(socket.id);
-      socket.emit("presence:join", name);
+
+    socket.on("connect_error", (err) => {
+      logout();
+      setStaff(null);
+      setConnectError(err.message || "Could not connect");
     });
 
-    socket.on("presence:roster", (list: StaffMember[]) => setRoster(list));
+    socket.on(
+      "presence:roster",
+      (list: { id: string; name: string; staffId: string }[]) => {
+        // Dedupe by staffId (one person could have multiple open sessions) and
+        // key the roster by staffId, since that's what ring/call target.
+        const byStaff = new Map<string, StaffMember>();
+        for (const entry of list) byStaff.set(entry.staffId, { id: entry.staffId, name: entry.name });
+        setRoster(Array.from(byStaff.values()));
+      }
+    );
 
-    socket.on("ring:incoming", ({ from }: { from: StaffMember }) => {
+    socket.on("ring:incoming", ({ from }: { from: { id: string; name: string } }) => {
       setIncomingRing({ fromId: from.id, fromName: from.name });
       window.deskop?.notify("Deskop", `${from.name} is ringing you`);
       const audio = new Audio("/ring.wav");
       audio.play().catch(() => {});
     });
 
-    socket.on("call:offer", async ({ from, offer }: { from: string; offer: RTCSessionDescriptionInit }) => {
-      const session = startCall(from);
-      await session.handleOffer(offer);
-    });
+    socket.on(
+      "call:offer",
+      async ({ from, offer }: { from: string; fromName: string; offer: RTCSessionDescriptionInit }) => {
+        const session = startCall(from);
+        await session.handleOffer(offer);
+      }
+    );
 
     socket.on("call:answer", async ({ from, answer }: { from: string; answer: RTCSessionDescriptionInit }) => {
       const current = activeCallRef.current;
@@ -99,13 +118,27 @@ export default function App() {
       activeCallRef.current?.session.close();
       updateActiveCall(null);
     });
-
-    setSelfName(name);
   }, []);
 
   useEffect(() => {
+    if (staff) beginSession();
     return () => disconnectSocket();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleLoggedIn() {
+    setConnectError(null);
+    setStaff(getSession()!.staff);
+    beginSession();
+  }
+
+  function handleLogout() {
+    disconnectSocket();
+    logout();
+    setStaff(null);
+    setRoster([]);
+    setTab("files");
+  }
 
   function handleRing(targetId: string) {
     getSocket().emit("ring:send", targetId);
@@ -129,9 +162,24 @@ export default function App() {
     setIncomingRing(null);
   }
 
-  if (!selfName) {
-    return <Login onJoin={handleJoin} />;
+  function handleMessageFromDirectory(staffId: string) {
+    const target = roster.find((s) => s.id === staffId);
+    setMessagesTarget({ kind: "dm", staffId, name: target?.name || "Staff" });
+    setTab("messages");
   }
+
+  if (!staff) {
+    return (
+      <>
+        <Login onLoggedIn={handleLoggedIn} />
+        {connectError && (
+          <div className="connect-error-toast">Disconnected: {connectError}. Please sign in again.</div>
+        )}
+      </>
+    );
+  }
+
+  const onlineStaffIds = new Set(roster.map((r) => r.id));
 
   return (
     <div className="app-shell">
@@ -140,17 +188,18 @@ export default function App() {
           <img src={logo} alt="" className="header-logo" />
           <h1>Deskop</h1>
         </div>
-        <span className="self-name">Signed in as {selfName}</span>
+        <div className="header-right">
+          <span className="self-name">
+            {staff.displayName} · {staff.department}
+          </span>
+          <button className="logout-btn" onClick={handleLogout}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       <main className="app-main">
-        <Roster
-          roster={roster}
-          selfId={selfId}
-          onRing={handleRing}
-          onCall={handleCall}
-          busy={!!activeCall}
-        />
+        <Roster roster={roster} selfId={staff.id} onRing={handleRing} onCall={handleCall} busy={!!activeCall} />
         <div className="main-panel">
           {activeCall ? (
             <CallView
@@ -165,27 +214,40 @@ export default function App() {
                 <button className={tab === "files" ? "active" : ""} onClick={() => setTab("files")}>
                   Files
                 </button>
+                <button className={tab === "directory" ? "active" : ""} onClick={() => setTab("directory")}>
+                  Directory
+                </button>
+                <button className={tab === "messages" ? "active" : ""} onClick={() => setTab("messages")}>
+                  Messages
+                </button>
                 <button className={tab === "report" ? "active" : ""} onClick={() => setTab("report")}>
                   Daily report
                 </button>
-                <button className={tab === "admin" ? "active" : ""} onClick={() => setTab("admin")}>
-                  Admin
-                </button>
+                {staff.role === "admin" && (
+                  <button className={tab === "admin" ? "active" : ""} onClick={() => setTab("admin")}>
+                    Admin
+                  </button>
+                )}
               </div>
-              {tab === "files" && <Files selfName={selfName} />}
-              {tab === "report" && <DailyReport selfName={selfName} />}
-              {tab === "admin" && <AdminReports />}
+              {tab === "files" && <Files />}
+              {tab === "directory" && (
+                <Directory
+                  onlineStaffIds={onlineStaffIds}
+                  onRing={handleRing}
+                  onCall={handleCall}
+                  onMessage={handleMessageFromDirectory}
+                />
+              )}
+              {tab === "messages" && <Messages initialConversation={messagesTarget} />}
+              {tab === "report" && <DailyReport />}
+              {tab === "admin" && staff.role === "admin" && <AdminDashboard />}
             </>
           )}
         </div>
       </main>
 
       {incomingRing && (
-        <RingModal
-          fromName={incomingRing.fromName}
-          onAccept={handleAcceptRing}
-          onDismiss={handleDismissRing}
-        />
+        <RingModal fromName={incomingRing.fromName} onAccept={handleAcceptRing} onDismiss={handleDismissRing} />
       )}
     </div>
   );

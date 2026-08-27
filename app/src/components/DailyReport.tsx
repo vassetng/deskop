@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { getServerUrl } from "../lib/socket";
+import { authFetch } from "../lib/auth";
 
-export default function DailyReport({ selfName }: { selfName: string }) {
+export default function DailyReport() {
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [blockers, setBlockers] = useState("");
   const [planForTomorrow, setPlanForTomorrow] = useState("");
@@ -15,15 +15,10 @@ export default function DailyReport({ selfName }: { selfName: string }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${getServerUrl()}/reports`, {
+      const res = await authFetch("/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          authorName: selfName,
-          tasksCompleted,
-          blockers,
-          planForTomorrow,
-        }),
+        body: JSON.stringify({ tasksCompleted, blockers, planForTomorrow }),
       });
       if (!res.ok) throw new Error("Submit failed");
       setSubmitted(true);

@@ -1,12 +1,14 @@
 # Deskop
 
-A prototype desktop app for office flow: staff presence, document sharing, a "ringer" to summon
-a colleague, and 1:1 voice/video calls with screen sharing. Built with Electron + React on the
-client and Node/Express/Socket.io on the server.
+A self-hosted office flow desktop app: staff accounts, presence, document sharing, a "ringer"
+to summon a colleague, 1:1 voice/video calls with screen sharing, internal messaging (DMs +
+department channels), a staff directory, role-based access control, and an admin dashboard.
+Built with Electron + React on the client and Node/Express/Socket.io on the server.
 
-This is a **prototype**: no accounts/auth, no TURN server (calls need LAN or STUN-reachable
-networks), and file storage is local disk on the server, not a database. See the plan doc for
-what's intentionally out of scope.
+This is still a **prototype** in a few specific ways: no TURN server (calls need LAN or
+STUN-reachable networks), file/message/report storage is local JSON on the server rather than a
+real database, and sessions are in-memory bearer tokens rather than JWTs. Access control is
+role-based (`admin` vs `staff`) rather than a granular per-feature permission matrix.
 
 ## Requirements
 
@@ -42,8 +44,37 @@ LAN IP (e.g. `192.168.1.10`) — staff will point the app at `http://192.168.1.1
 npm run app
 ```
 
-This starts the Vite dev server and opens the Electron window. On first launch, enter your name
-and the server address, then click Join.
+This starts the Vite dev server and opens the Electron window. On first launch:
+
+1. Pick how you're connecting — **Localhost** (server on this same machine), **WiFi/LAN**
+   (type the office server's LAN address, e.g. `http://192.168.1.10:4000`), or **Online** (a
+   `https://` address plus a connection password, if the server has one set — see below).
+2. Sign in with a username and password.
+
+The very first time the server ever runs (empty `server/data/staff.json`), it creates a
+default admin account and prints the credentials to the console:
+
+```
+No staff accounts found — created a default admin login:
+  username: admin
+  password: admin123
+```
+
+Log in with that, then create real staff accounts from the **Admin** tab → **Staff** (set their
+department and role there too) — change the default admin password from the same screen isn't
+built in yet, so at minimum create a new admin account and remove the default one once you're
+set up.
+
+### Connection password (for the "Online" mode)
+
+If you expose the server beyond your LAN, set a shared connection password so only clients that
+know it can connect at all (checked before login, on every socket connection):
+
+```bash
+CONNECTION_PASSWORD=yourpassword npm run server
+```
+
+Leave it unset for normal LAN use — no extra password is required by default.
 
 ## Website / download page
 
@@ -90,21 +121,31 @@ privilege is not held by the client`, you have two options:
 
 ## Using it
 
-- **Roster**: see everyone currently online in the left sidebar.
-- **Ring**: click "Ring" next to a name to pop a full-screen alert + system notification + sound
-  on their screen. They can Accept (starts a call) or Dismiss.
-- **Call**: click "Call" to start a 1:1 video call directly.
+- **Roster**: see everyone currently online in the left sidebar, with quick Ring/Call buttons.
+- **Ring**: pops a full-screen alert + system notification + sound on their screen. They can
+  Accept (starts a call) or Dismiss.
+- **Call**: 1:1 video call directly from the roster or the directory.
 - **Screen share**: during a call, click "Share screen" to swap your video feed for your screen;
   click again to switch back to your camera.
 - **Files**: drag a file onto the dropzone (or click it) to upload; it appears for everyone
-  connected to the same server, with a Download link.
+  connected to the same server, with a Download link. Uploads are attributed to your logged-in
+  account, not a typed name.
+- **Directory**: every staff account (online or not), searchable by name/username and filterable
+  by department, with Message/Ring/Call buttons (Ring and Call are disabled for offline staff;
+  Message always works — DMs are delivered when they're next online).
+- **Messages**: direct messages with any staff member, plus your department's channel. Admins
+  see and can post in every department's channel; everyone else only sees their own — enforced
+  server-side, not just hidden in the UI.
 - **Daily report**: each staff member can submit a short end-of-day report (tasks completed,
   blockers, plan for tomorrow). Submitting again the same day updates that day's report rather
   than creating a duplicate.
-- **Admin**: enter the admin code to view everyone's reports for a given day, picked by date.
-  The code defaults to `admin123` — set your own with `ADMIN_CODE=yourcode npm run server`. The
-  server also prints the active code to the console on startup. This is a simple shared
-  passcode, not real per-user authentication — anyone with the code can view all reports.
+- **Admin** (only visible to `admin`-role accounts):
+  - **Overview** — online/total staff counts, today's report counts, a recent-activity feed
+    (logins, rings, calls, report submissions, account creation).
+  - **Reports** — everyone's reports for a chosen date, with a "Mark reviewed" toggle so you can
+    track what's been read.
+  - **Staff** — create/remove staff accounts, set their department and role.
+  - **Departments** — add/remove department channels.
 
 ## Troubleshooting
 
@@ -118,11 +159,15 @@ privilege is not held by the client`, you have two options:
 
 ## Notes for production hardening (not done here)
 
-- Add authentication and access control
-- Add a TURN server for calls across restrictive networks/NAT
+- Sessions are an in-memory token map — they're wiped on every server restart (everyone has to
+  log in again) and don't scale past one server process. Swap for JWTs or a real session store.
+- Add password reset / change-password flow (currently only account creation exists; changing a
+  password requires an admin to delete and recreate the account).
+- Add a TURN server for calls across restrictive networks/NAT.
 - Code-sign the Windows installer and add auto-update (electron-builder supports both once you
-  have a certificate)
+  have a certificate).
 - Build macOS/Linux installers too (currently Windows-only; add `mac`/`linux` targets to the
-  `build` config in `app/package.json` and matching `dist:mac`/`dist:linux` scripts)
-- Move file storage to object storage and add a real database for the roster/file metadata
-- Support group calls (needs an SFU, e.g. mediasoup/LiveKit, instead of mesh WebRTC)
+  `build` config in `app/package.json` and matching `dist:mac`/`dist:linux` scripts).
+- Move file/message/report/staff storage to a real database instead of local JSON files.
+- Support group calls (needs an SFU, e.g. mediasoup/LiveKit, instead of mesh WebRTC).
+- Granular per-feature permissions instead of just `admin`/`staff` roles, if needed.

@@ -1,16 +1,45 @@
 import { useState } from "react";
-import { getServerUrl, setServerUrl } from "../lib/socket";
+import { login } from "../lib/auth";
 import logo from "../assets/logo.png";
 
-export default function Login({ onJoin }: { onJoin: (name: string, serverUrl: string) => void }) {
-  const [name, setName] = useState("");
-  const [serverUrl, setServerUrlInput] = useState(getServerUrl());
+type Mode = "localhost" | "lan" | "online";
 
-  function handleSubmit(e: React.FormEvent) {
+const LOCALHOST_URL = "http://localhost:4000";
+
+export default function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
+  const [mode, setMode] = useState<Mode>("localhost");
+  const [lanUrl, setLanUrl] = useState("http://192.168.1.10:4000");
+  const [onlineUrl, setOnlineUrl] = useState("https://");
+  const [connectionPassword, setConnectionPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function serverUrlForMode(): string {
+    if (mode === "localhost") return LOCALHOST_URL;
+    if (mode === "lan") return lanUrl.trim();
+    return onlineUrl.trim();
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    setServerUrl(serverUrl.trim());
-    onJoin(name.trim(), serverUrl.trim());
+    if (!username.trim() || !password) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login(
+        serverUrlForMode(),
+        username.trim(),
+        password,
+        mode === "online" ? connectionPassword : null
+      );
+      onLoggedIn();
+    } catch (err: any) {
+      setError(err.message || "Couldn't log in. Check your server address and credentials.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -19,24 +48,76 @@ export default function Login({ onJoin }: { onJoin: (name: string, serverUrl: st
         <img src={logo} alt="Deskop" className="login-logo" />
         <h1>Deskop</h1>
         <p className="subtitle">Office flow for your team</p>
+
+        <div className="connection-modes">
+          <button
+            type="button"
+            className={mode === "localhost" ? "active" : ""}
+            onClick={() => setMode("localhost")}
+          >
+            Localhost
+          </button>
+          <button type="button" className={mode === "lan" ? "active" : ""} onClick={() => setMode("lan")}>
+            WiFi / LAN
+          </button>
+          <button
+            type="button"
+            className={mode === "online" ? "active" : ""}
+            onClick={() => setMode("online")}
+          >
+            Online
+          </button>
+        </div>
+
+        {mode === "lan" && (
+          <label>
+            Server address
+            <input
+              value={lanUrl}
+              onChange={(e) => setLanUrl(e.target.value)}
+              placeholder="http://192.168.1.10:4000"
+            />
+          </label>
+        )}
+
+        {mode === "online" && (
+          <>
+            <label>
+              Server address
+              <input
+                value={onlineUrl}
+                onChange={(e) => setOnlineUrl(e.target.value)}
+                placeholder="https://your-office-server.example.com"
+              />
+            </label>
+            <label>
+              Connection password
+              <input
+                type="password"
+                value={connectionPassword}
+                onChange={(e) => setConnectionPassword(e.target.value)}
+                placeholder="Ask your admin"
+              />
+            </label>
+          </>
+        )}
+
+        {mode === "localhost" && <p className="mode-hint">Connecting to {LOCALHOST_URL}</p>}
+
         <label>
-          Your name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Jane Doe"
-            autoFocus
-          />
+          Username
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="jane" autoFocus />
         </label>
         <label>
-          Server address
-          <input
-            value={serverUrl}
-            onChange={(e) => setServerUrlInput(e.target.value)}
-            placeholder="http://192.168.1.10:4000"
-          />
+          Password
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        <button type="submit">Join</button>
+
+        {error && <div className="report-error">{error}</div>}
+
+        <button type="submit" disabled={submitting}>
+          {submitting ? "Signing in…" : "Sign in"}
+        </button>
       </form>
     </div>
   );

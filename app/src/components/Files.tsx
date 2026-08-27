@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getServerUrl, getSocket } from "../lib/socket";
+import { getSocket } from "../lib/socket";
+import { authFetch, getServerUrl, getToken } from "../lib/auth";
 
 type SharedFile = {
   id: string;
@@ -16,7 +17,7 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function Files({ selfName }: { selfName: string }) {
+export default function Files() {
   const [files, setFiles] = useState<SharedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -24,7 +25,7 @@ export default function Files({ selfName }: { selfName: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch(`${getServerUrl()}/files`)
+    authFetch("/files")
       .then((r) => r.json())
       .then(setFiles)
       .catch(() => {});
@@ -37,24 +38,20 @@ export default function Files({ selfName }: { selfName: string }) {
     };
   }, []);
 
-  const upload = useCallback(
-    async (file: File) => {
-      setUploading(true);
-      setError(null);
-      const form = new FormData();
-      form.append("file", file);
-      form.append("uploadedBy", selfName);
-      try {
-        const res = await fetch(`${getServerUrl()}/files/upload`, { method: "POST", body: form });
-        if (!res.ok) throw new Error("Upload failed");
-      } catch {
-        setError(`Couldn't upload "${file.name}". Check your connection to the server and try again.`);
-      } finally {
-        setUploading(false);
-      }
-    },
-    [selfName]
-  );
+  const upload = useCallback(async (file: File) => {
+    setUploading(true);
+    setError(null);
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await authFetch("/files/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error("Upload failed");
+    } catch {
+      setError(`Couldn't upload "${file.name}". Check your connection to the server and try again.`);
+    } finally {
+      setUploading(false);
+    }
+  }, []);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -102,7 +99,11 @@ export default function Files({ selfName }: { selfName: string }) {
                   {formatSize(f.size)} · shared by {f.uploadedBy}
                 </div>
               </div>
-              <a href={`${getServerUrl()}/files/download/${f.storedName}`} target="_blank" rel="noreferrer">
+              <a
+                href={`${getServerUrl()}/files/download/${f.storedName}?token=${getToken()}`}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Download
               </a>
             </li>

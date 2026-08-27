@@ -20,7 +20,7 @@ body {
   background: #1a1d24;
   padding: 2.5rem;
   border-radius: 12px;
-  width: 320px;
+  width: 360px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -78,6 +78,36 @@ body {
   font-size: 0.95rem;
 }
 
+.connection-modes {
+  display: flex;
+  gap: 0.4rem;
+  background: #12141a;
+  padding: 0.3rem;
+  border-radius: 10px;
+}
+
+.login-card .connection-modes button {
+  flex: 1;
+  margin-top: 0;
+  padding: 0.5rem 0.4rem;
+  background: transparent;
+  color: #9aa0a8;
+  font-weight: 500;
+  font-size: 0.8rem;
+  border-radius: 7px;
+}
+
+.login-card .connection-modes button.active {
+  background: #22252c;
+  color: #e6e8eb;
+}
+
+.mode-hint {
+  margin: -0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #6b7078;
+}
+
 .app-shell {
   height: 100vh;
   display: flex;
@@ -111,6 +141,39 @@ body {
 
 .self-name {
   color: #9aa0a8;
+  font-size: 0.85rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logout-btn {
+  background: #171a20;
+  border: 1px solid #22252c;
+  color: #9aa0a8;
+  padding: 0.4rem 0.8rem;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  color: #e6e8eb;
+  border-color: #4a7dff;
+}
+
+.connect-error-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #301212;
+  color: #f4a2a2;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
   font-size: 0.85rem;
 }
 
@@ -158,6 +221,10 @@ body {
   border-radius: 50%;
   background: #33d17a;
   flex-shrink: 0;
+}
+
+.dot.offline {
+  background: #4b4f58;
 }
 
 .staff-name {
@@ -545,4 +612,352 @@ body {
 .ring-actions .dismiss {
   background: #22252c;
   color: #e6e8eb;
+}
+
+/* --- Directory --- */
+
+.directory-filters {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+  max-width: 640px;
+}
+
+.directory-filters input {
+  flex: 1;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #2c3038;
+  background: #12141a;
+  color: #e6e8eb;
+  font-size: 0.85rem;
+}
+
+.directory-filters select {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #2c3038;
+  background: #12141a;
+  color: #e6e8eb;
+  font-size: 0.85rem;
+}
+
+.directory-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 640px;
+}
+
+.directory-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #171a20;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+}
+
+.directory-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.directory-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.directory-actions button {
+  background: #22252c;
+  border: none;
+  color: #e6e8eb;
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.directory-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --- Messages --- */
+
+.messages-panel {
+  display: flex;
+  height: 100%;
+  max-height: calc(100vh - 220px);
+  gap: 1.5rem;
+}
+
+.conversation-list {
+  width: 200px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.conversation-list h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7078;
+  margin: 1rem 0 0.5rem;
+}
+
+.conversation-list h3:first-child {
+  margin-top: 0;
+}
+
+.conversation-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.conversation-list button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #9aa0a8;
+  padding: 0.45rem 0.6rem;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.conversation-list button:hover {
+  color: #e6e8eb;
+}
+
+.conversation-list button.active {
+  background: #171a20;
+  color: #e6e8eb;
+}
+
+.thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-left: 1px solid #22252c;
+  padding-left: 1.5rem;
+}
+
+.thread-header {
+  font-weight: 600;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #22252c;
+  margin-bottom: 0.75rem;
+}
+
+.thread-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.message-bubble {
+  align-self: flex-start;
+  background: #171a20;
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  max-width: 70%;
+}
+
+.message-bubble.own {
+  align-self: flex-end;
+  background: #24407a;
+}
+
+.message-author {
+  font-size: 0.72rem;
+  color: #9aa0a8;
+  margin-bottom: 0.15rem;
+}
+
+.message-text {
+  font-size: 0.88rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.message-time {
+  font-size: 0.68rem;
+  color: #7d8590;
+  margin-top: 0.2rem;
+  text-align: right;
+}
+
+.thread-composer {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.thread-composer input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #2c3038;
+  background: #12141a;
+  color: #e6e8eb;
+  font-size: 0.9rem;
+}
+
+.thread-composer button {
+  padding: 0.6rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  background: #4a7dff;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.thread-composer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Admin dashboard --- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  max-width: 640px;
+  margin-bottom: 2rem;
+}
+
+.stat-tile {
+  background: #171a20;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #9aa0a8;
+}
+
+.section-heading {
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  background: #171a20;
+  padding: 0.55rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.activity-item .meta {
+  color: #6b7078;
+  font-size: 0.75rem;
+}
+
+.report-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: #22252c;
+  color: #9aa0a8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge.reviewed {
+  background: #12301f;
+  color: #33d17a;
+}
+
+.report-status-row button {
+  background: #22252c;
+  border: none;
+  color: #e6e8eb;
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.staff-form {
+  max-width: 400px;
+  margin-bottom: 1.5rem;
+}
+
+.staff-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 640px;
+}
+
+.staff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #171a20;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+}
+
+.staff-row .meta {
+  color: #6b7078;
+  font-size: 0.78rem;
+}
+
+.staff-row button.danger {
+  background: #301212;
+  border: none;
+  color: #f4a2a2;
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
 }

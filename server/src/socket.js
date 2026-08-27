@@ -1,43 +1,111 @@
-import { addStaff, removeStaff, getRoster, findStaff } from "./store.js";
+import crypto from "crypto";
+import {
+  addPresence,
+  removePresence,
+  getPresenceRoster,
+  addMessage,
+  dmKey,
+  logActivity,
+} from "./store.js";
+import { resolveStaffFromToken } from "./auth.js";
+
+const CONNECTION_PASSWORD = process.env.CONNECTION_PASSWORD || null;
 
 export function registerSocketHandlers(io) {
+  io.use((socket, next) => {
+    if (CONNECTION_PASSWORD && socket.handshake.auth?.connectionPassword !== CONNECTION_PASSWORD) {
+      return next(new Error("Invalid connection password"));
+    }
+    const staff = resolveStaffFromToken(socket.handshake.auth?.token);
+    if (!staff) return next(new Error("Not authenticated"));
+    socket.staff = staff;
+    next();
+  });
+
   io.on("connection", (socket) => {
-    socket.on("presence:join", (name) => {
-      addStaff(socket.id, String(name || "Unnamed").slice(0, 60));
-      io.emit("presence:roster", getRoster());
+    const staff = socket.staff;
+
+    addPresence(socket.id, staff.id, staff.displayName);
+    socket.join(`staff:${staff.id}`);
+    socket.join(`dept:${staff.department}`);
+    if (staff.role === "admin") socket.join("role:admin");
+
+    io.emit("presence:roster", getPresenceRoster());
+    logActivity("presence:online", { staffId: staff.id, name: staff.displayName });
+
+    // --- Ringer: summon a staff member (targeted by staffId) ---
+    socket.on("ring:send", (targetStaffId) => {
+      io.to(`staff:${targetStaffId}`).emit("ring:incoming", {
+        from: { id: staff.id, name: staff.displayName },
+      });
+      logActivity("ring:sent", { from: staff.displayName, targetStaffId });
     });
 
-    // --- Ringer: summon a staff member ---
-    socket.on("ring:send", (targetId) => {
-      const from = findStaff(socket.id);
-      if (!from) return;
-      io.to(targetId).emit("ring:incoming", { from });
+    socket.on("ring:dismiss", (targetStaffId) => {
+      io.to(`staff:${targetStaffId}`).emit("ring:dismissed", {
+        from: { id: staff.id, name: staff.displayName },
+      });
     });
 
-    socket.on("ring:dismiss", (targetId) => {
-      io.to(targetId).emit("ring:dismissed", { from: findStaff(socket.id) });
-    });
-
-    // --- WebRTC signaling relay (1:1 calls) ---
+    // --- WebRTC signaling relay (1:1 calls), targeted by staffId ---
     socket.on("call:offer", ({ to, offer }) => {
-      io.to(to).emit("call:offer", { from: socket.id, offer });
+      io.to(`staff:${to}`).emit("call:offer", { from: staff.id, fromName: staff.displayName, offer });
+      logActivity("call:started", { from: staff.displayName, targetStaffId: to });
     });
 
     socket.on("call:answer", ({ to, answer }) => {
-      io.to(to).emit("call:answer", { from: socket.id, answer });
+      io.to(`staff:${to}`).emit("call:answer", { from: staff.id, answer });
     });
 
     socket.on("call:ice", ({ to, candidate }) => {
-      io.to(to).emit("call:ice", { from: socket.id, candidate });
+      io.to(`staff:${to}`).emit("call:ice", { from: staff.id, candidate });
     });
 
     socket.on("call:hangup", ({ to }) => {
-      io.to(to).emit("call:hangup", { from: socket.id });
+      io.to(`staff:${to}`).emit("call:hangup", { from: staff.id });
+    });
+
+    // --- Messaging: DMs + department channels ---
+    socket.on("message:send", ({ kind, to, text }) => {
+      if (!text || !text.trim()) return;
+
+      if (kind === "dm") {
+        const target = dmKey(staff.id, to);
+        const msg = {
+          id: crypto.randomUUID(),
+          kind: "dm",
+          target,
+          fromId: staff.id,
+          fromName: staff.displayName,
+          text: String(text).slice(0, 4000),
+          sentAt: new Date().toISOString(),
+        };
+        addMessage(msg);
+        io.to(`staff:${staff.id}`).to(`staff:${to}`).emit("message:new", msg);
+        return;
+      }
+
+      if (kind === "channel") {
+        const department = to;
+        if (staff.role !== "admin" && staff.department !== department) return;
+        const msg = {
+          id: crypto.randomUUID(),
+          kind: "channel",
+          target: department,
+          fromId: staff.id,
+          fromName: staff.displayName,
+          text: String(text).slice(0, 4000),
+          sentAt: new Date().toISOString(),
+        };
+        addMessage(msg);
+        io.to(`dept:${department}`).to("role:admin").emit("message:new", msg);
+      }
     });
 
     socket.on("disconnect", () => {
-      removeStaff(socket.id);
-      io.emit("presence:roster", getRoster());
+      removePresence(socket.id);
+      io.emit("presence:roster", getPresenceRoster());
+      logActivity("presence:offline", { staffId: staff.id, name: staff.displayName });
     });
   });
 }

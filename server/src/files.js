@@ -4,6 +4,7 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { addFile, getFiles } from "./store.js";
+import { authMiddleware, requireAuth, resolveStaffFromToken } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
@@ -22,11 +23,11 @@ const upload = multer({ storage, limits: { fileSize: 200 * 1024 * 1024 } });
 export function createFilesRouter(io) {
   const router = express.Router();
 
-  router.get("/", (_req, res) => {
+  router.get("/", authMiddleware, requireAuth, (_req, res) => {
     res.json(getFiles());
   });
 
-  router.post("/upload", upload.single("file"), (req, res) => {
+  router.post("/upload", authMiddleware, requireAuth, upload.single("file"), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const meta = {
@@ -34,7 +35,7 @@ export function createFilesRouter(io) {
       originalName: req.file.originalname,
       storedName: req.file.filename,
       size: req.file.size,
-      uploadedBy: req.body.uploadedBy || "Unknown",
+      uploadedBy: req.staff.displayName,
       uploadedAt: new Date().toISOString(),
     };
     addFile(meta);
@@ -43,6 +44,13 @@ export function createFilesRouter(io) {
   });
 
   router.get("/download/:storedName", (req, res) => {
+    // Plain <a href> downloads can't carry an Authorization header, so this
+    // route also accepts the session token as a query param.
+    const staff = req.header("Authorization")?.startsWith("Bearer ")
+      ? resolveStaffFromToken(req.header("Authorization").slice(7))
+      : resolveStaffFromToken(req.query.token);
+    if (!staff) return res.status(401).json({ error: "Not authenticated" });
+
     const file = getFiles().find((f) => f.storedName === req.params.storedName);
     if (!file) return res.status(404).json({ error: "File not found" });
     res.download(path.join(UPLOAD_DIR, file.storedName), file.originalName);

@@ -6,11 +6,15 @@ import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 import { createFilesRouter } from "./files.js";
 import { createReportsRouter } from "./reports.js";
+import { createAuthRouter } from "./auth.js";
+import { createDepartmentsRouter } from "./departments.js";
+import { createMessagesRouter } from "./messages.js";
+import { createAdminRouter } from "./admin.js";
 import { registerSocketHandlers } from "./socket.js";
+import { ensureBootstrapAdmin } from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 4000;
-const ADMIN_CODE = process.env.ADMIN_CODE || "admin123";
 
 const app = express();
 app.use(cors());
@@ -20,6 +24,10 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+app.use("/auth", createAuthRouter());
+app.use("/departments", createDepartmentsRouter());
+app.use("/messages", createMessagesRouter());
+app.use("/admin", createAdminRouter());
 app.use("/files", createFilesRouter(io));
 app.use("/reports", createReportsRouter());
 app.use("/downloads", express.static(path.join(__dirname, "..", "..", "app", "release")));
@@ -27,7 +35,17 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 
 registerSocketHandlers(io);
 
+const bootstrapAdmin = ensureBootstrapAdmin();
+
 server.listen(PORT, () => {
   console.log(`Deskop server listening on http://0.0.0.0:${PORT}`);
-  console.log(`Admin code for viewing daily reports: ${ADMIN_CODE}`);
+  if (bootstrapAdmin) {
+    console.log(`No staff accounts found — created a default admin login:`);
+    console.log(`  username: ${bootstrapAdmin.username}`);
+    console.log(`  password: ${bootstrapAdmin.password}`);
+    console.log(`Change this after first login.`);
+  }
+  if (process.env.CONNECTION_PASSWORD) {
+    console.log(`Connection password is required for all clients.`);
+  }
 });
