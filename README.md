@@ -154,8 +154,10 @@ privilege is not held by the client`, you have two options:
   come to my desk?"), and it pops a full-screen alert + system notification + a looping tone on
   their screen. They just tap OK to acknowledge it (you get a brief "seen" confirmation); it
   doesn't start or answer any call.
-- **Call**: pick Audio or Video from the roster or directory to start a 1:1 call directly —
-  ringing someone first is optional, calling doesn't require it.
+- **Call**: pick Audio or Video from the roster or directory. The other person sees an incoming
+  call screen (with a ringing tone) and must tap **Accept** before anything connects — your
+  camera/mic (and theirs) aren't touched until they do. You get a "Calling..." screen with
+  Cancel while you wait; they can Decline instead.
 - **Screen share**: during a call, click "Share screen" to swap your video feed for your screen;
   click again to switch back to your camera.
 - **Files**: drag a file onto the dropzone (or click it) to upload; it appears for everyone
