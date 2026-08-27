@@ -109,8 +109,20 @@ export function registerSocketHandlers(io) {
     // --- Messaging: DMs + department channels ---
     socket.on(
       "message:send",
-      safe(({ kind, to, text } = {}) => {
-        if (!text || !text.trim() || !to) return;
+      safe(({ kind, to, text, attachment } = {}) => {
+        const hasText = text && text.trim();
+        const validAttachment =
+          attachment &&
+          typeof attachment.storedName === "string" &&
+          typeof attachment.originalName === "string" &&
+          typeof attachment.size === "number"
+            ? {
+                storedName: attachment.storedName,
+                originalName: String(attachment.originalName).slice(0, 255),
+                size: attachment.size,
+              }
+            : null;
+        if ((!hasText && !validAttachment) || !to) return;
 
         if (kind === "dm") {
           const target = dmKey(staff.id, to);
@@ -120,7 +132,8 @@ export function registerSocketHandlers(io) {
             target,
             fromId: staff.id,
             fromName: staff.displayName,
-            text: String(text).slice(0, 4000),
+            text: hasText ? String(text).slice(0, 4000) : "",
+            attachment: validAttachment,
             sentAt: new Date().toISOString(),
           };
           addMessage(msg);
@@ -137,7 +150,8 @@ export function registerSocketHandlers(io) {
             target: department,
             fromId: staff.id,
             fromName: staff.displayName,
-            text: String(text).slice(0, 4000),
+            text: hasText ? String(text).slice(0, 4000) : "",
+            attachment: validAttachment,
             sentAt: new Date().toISOString(),
           };
           addMessage(msg);

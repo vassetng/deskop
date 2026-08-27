@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { authFetch, getSession, Staff } from "../lib/auth";
+import { authFetch, getServerUrl, getSession, getToken, Staff } from "../lib/auth";
 import { getSocket } from "../lib/socket";
 
 type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
+
+type Attachment = { storedName: string; originalName: string; size: number };
 
 type Message = {
   id: string;
@@ -11,6 +13,7 @@ type Message = {
   fromId: string;
   fromName: string;
   text: string;
+  attachment: Attachment | null;
   sentAt: string;
 };
 
@@ -22,6 +25,12 @@ function dmKey(idA: string, idB: string): string {
   return [idA, idB].sort().join(":");
 }
 
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function Messages({ initialConversation }: { initialConversation: Conversation | null }) {
   const self = getSession()!.staff;
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -29,7 +38,10 @@ export default function Messages({ initialConversation }: { initialConversation:
   const [selected, setSelected] = useState<Conversation | null>(initialConversation);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     authFetch("/auth/staff").then((r) => r.json()).then(setStaff).catch(() => {});
@@ -76,16 +88,39 @@ export default function Messages({ initialConversation }: { initialConversation:
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function send(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selected || !draft.trim()) return;
+  function sendPayload(text: string, attachment: Attachment | null) {
+    if (!selected) return;
     const socket = getSocket();
     if (selected.kind === "dm") {
-      socket.emit("message:send", { kind: "dm", to: selected.staffId, text: draft.trim() });
+      socket.emit("message:send", { kind: "dm", to: selected.staffId, text, attachment });
     } else {
-      socket.emit("message:send", { kind: "channel", to: selected.department, text: draft.trim() });
+      socket.emit("message:send", { kind: "channel", to: selected.department, text, attachment });
     }
+  }
+
+  function send(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    sendPayload(draft.trim(), null);
     setDraft("");
+  }
+
+  async function handleAttach(file: File) {
+    if (!selected) return;
+    setUploading(true);
+    setAttachError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await authFetch("/messages/attachments", { method: "POST", body: form });
+      if (!res.ok) throw new Error("Upload failed");
+      const attachment: Attachment = await res.json();
+      sendPayload("", attachment);
+    } catch {
+      setAttachError(`Couldn't send "${file.name}". Check your connection and try again.`);
+    } finally {
+      setUploading(false);
+    }
   }
 
   const contacts = staff.filter((s) => s.id !== self.id);
@@ -133,13 +168,44 @@ export default function Messages({ initialConversation }: { initialConversation:
               {messages.map((m) => (
                 <div key={m.id} className={`message-bubble ${m.fromId === self.id ? "own" : ""}`}>
                   {m.fromId !== self.id && <div className="message-author">{m.fromName}</div>}
-                  <div className="message-text">{m.text}</div>
+                  {m.text && <div className="message-text">{m.text}</div>}
+                  {m.attachment && (
+                    <a
+                      className="message-attachment"
+                      href={`${getServerUrl()}/messages/attachments/${m.attachment.storedName}?token=${getToken()}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      📎 {m.attachment.originalName}
+                      <span className="meta"> · {formatSize(m.attachment.size)}</span>
+                    </a>
+                  )}
                   <div className="message-time">{new Date(m.sentAt).toLocaleTimeString()}</div>
                 </div>
               ))}
               <div ref={threadEndRef} />
             </div>
+            {attachError && <div className="report-error">{attachError}</div>}
             <form className="thread-composer" onSubmit={send}>
+              <button
+                type="button"
+                className="attach-btn"
+                title="Attach a file"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? "…" : "📎"}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleAttach(file);
+                  e.target.value = "";
+                }}
+              />
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}

@@ -162,7 +162,10 @@ privilege is not held by the client`, you have two options:
   Message always works — DMs are delivered when they're next online).
 - **Messages**: direct messages with any staff member, plus your department's channel. Admins
   see and can post in every department's channel; everyone else only sees their own — enforced
-  server-side, not just hidden in the UI.
+  server-side, not just hidden in the UI. Click 📎 to attach a file to a DM or channel post —
+  access to the attachment itself follows the same rule as the message it's on (only the two DM
+  participants, or that department's members and admins), it's not visible from the general
+  Files tab.
 - **Daily report**: each staff member can submit a short end-of-day report (tasks completed,
   blockers, plan for tomorrow). Submitting again the same day updates that day's report rather
   than creating a duplicate.

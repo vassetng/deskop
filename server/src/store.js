@@ -236,6 +236,10 @@ export function getDmMessages(idA, idB) {
   return messages.filter((m) => m.kind === "dm" && m.target === key);
 }
 
+export function findMessageByAttachment(storedName) {
+  return messages.find((m) => m.attachment?.storedName === storedName);
+}
+
 // --- Activity log (in-memory ring buffer for the admin dashboard) ---
 const ACTIVITY_LIMIT = 200;
 const activity = [];
