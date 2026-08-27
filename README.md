@@ -69,12 +69,24 @@ serves automatically at `/downloads/deskop-setup.exe` — no config needed.
 (`winCodeSign`, used for embedding the app icon via `rcedit`) that contains Unix symlinks for
 its macOS tools. Extracting those requires Windows' `SeCreateSymbolicLinkPrivilege`, which most
 accounts don't have by default. If the build fails with `Cannot create symbolic link: A required
-privilege is not held by the client`, either:
+privilege is not held by the client`, you have two options:
 
-- Enable **Developer Mode** (Settings → Privacy & security → For developers), or
-- Run the build from an Administrator terminal
-
-then re-run `npm run dist:win`.
+- Enable **Developer Mode** (Settings → Privacy & security → For developers), or run the build
+  from an Administrator terminal, then re-run `npm run dist:win` — the clean fix.
+- **Workaround without changing system settings:** only the two macOS `.dylib` "symlinks" fail;
+  everything else (including the Windows `rcedit` tools electron-builder actually needs) extracts
+  fine. After a failed build, complete the cache manually:
+  1. Find the partially-extracted folder under
+     `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\<random-number>`
+     (delete any `.7z` sibling file, keep the folder).
+  2. In `<folder>\darwin\10.12\lib`, copy `libcrypto.1.0.0.dylib` over the empty `libcrypto.dylib`,
+     and `libssl.1.0.0.dylib` over the empty `libssl.dylib` (plain copies — the actual content
+     doesn't matter for a Windows build, this just satisfies electron-builder's completeness
+     check).
+  3. Rename that folder from `<random-number>` to `winCodeSign-2.6.0` (still inside
+     `Cache\winCodeSign\`).
+  4. Re-run `npm run dist:win` — it will find the cache already populated and skip straight to
+     building the installer.
 
 ## Using it
 

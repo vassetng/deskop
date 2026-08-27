@@ -71,7 +71,7 @@ export default function App() {
     socket.on("ring:incoming", ({ from }: { from: StaffMember }) => {
       setIncomingRing({ fromId: from.id, fromName: from.name });
       window.deskop?.notify("Deskop", `${from.name} is ringing you`);
-      const audio = new Audio("/ring.mp3");
+      const audio = new Audio("/ring.wav");
       audio.play().catch(() => {});
     });
 

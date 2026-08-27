@@ -20,6 +20,7 @@ export default function Files({ selfName }: { selfName: string }) {
   const [files, setFiles] = useState<SharedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,11 +40,15 @@ export default function Files({ selfName }: { selfName: string }) {
   const upload = useCallback(
     async (file: File) => {
       setUploading(true);
+      setError(null);
       const form = new FormData();
       form.append("file", file);
       form.append("uploadedBy", selfName);
       try {
-        await fetch(`${getServerUrl()}/files/upload`, { method: "POST", body: form });
+        const res = await fetch(`${getServerUrl()}/files/upload`, { method: "POST", body: form });
+        if (!res.ok) throw new Error("Upload failed");
+      } catch {
+        setError(`Couldn't upload "${file.name}". Check your connection to the server and try again.`);
       } finally {
         setUploading(false);
       }
@@ -83,6 +88,7 @@ export default function Files({ selfName }: { selfName: string }) {
           }}
         />
       </div>
+      {error && <div className="report-error files-error">{error}</div>}
       <ul className="file-list">
         {files.length === 0 && <p className="empty">No files shared yet.</p>}
         {files
