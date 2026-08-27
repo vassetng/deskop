@@ -47,6 +47,14 @@ registerSocketHandlers(io);
 
 const bootstrapAdmin = ensureBootstrapAdmin();
 
+// A failure to actually start (e.g. the port is already in use) should fail
+// loudly and exit — swallowing that would leave a broken process that looks
+// alive but never serves anything.
+server.on("error", (err) => {
+  console.error(`Server failed to start: ${err.message}`);
+  process.exit(1);
+});
+
 server.listen(PORT, () => {
   console.log(`Deskop server listening on http://0.0.0.0:${PORT}`);
   const lanAddresses = getLanAddresses();
@@ -64,6 +72,16 @@ server.listen(PORT, () => {
   if (process.env.CONNECTION_PASSWORD) {
     console.log(`Connection password is required for all clients.`);
   }
+
+  // Only guard against runtime errors (a bad request, a flaky write) once
+  // we're actually up — a startup failure above should still exit cleanly,
+  // not get silently swallowed by this.
+  process.on("uncaughtException", (err) => {
+    console.error("Unexpected error (server is still running):", err);
+  });
+  process.on("unhandledRejection", (err) => {
+    console.error("Unexpected rejection (server is still running):", err);
+  });
 });
 
 try {
