@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Deskop — Office flow for your team</title>
+<link rel="icon" type="image/png" href="/favicon.png" />
 <style>
   * { box-sizing: border-box; }
   body {
@@ -27,6 +28,14 @@
   .brand {
     font-weight: 700;
     font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .brand img {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
   }
   nav.site-nav a {
     text-decoration: none;
@@ -174,7 +183,7 @@
 
 <header class="site-header">
   <div class="wrap">
-    <span class="brand">🔔 Deskop</span>
+    <span class="brand"><img src="/logo.png" alt="" />Deskop</span>
     <nav class="site-nav">
       <a href="#features">Features</a>
       <a href="#download">Download</a>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getServerUrl, setServerUrl } from "../lib/socket";
+import logo from "../assets/logo.png";
 
 export default function Login({ onJoin }: { onJoin: (name: string, serverUrl: string) => void }) {
   const [name, setName] = useState("");
@@ -15,6 +16,7 @@ export default function Login({ onJoin }: { onJoin: (name: string, serverUrl: st
   return (
     <div className="login-screen">
       <form className="login-card" onSubmit={handleSubmit}>
+        <img src={logo} alt="Deskop" className="login-logo" />
         <h1>Deskop</h1>
         <p className="subtitle">Office flow for your team</p>
         <label>

@@ -8,6 +8,7 @@ import AdminReports from "./components/AdminReports";
 import CallView from "./components/CallView";
 import { connectSocket, disconnectSocket, getSocket } from "./lib/socket";
 import { CallSession } from "./lib/webrtc";
+import logo from "./assets/logo.png";
 
 type IncomingRing = { fromId: string; fromName: string };
 type ActiveCall = { session: CallSession; peerId: string; peerName: string };
@@ -135,7 +136,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>Deskop</h1>
+        <div className="brand">
+          <img src={logo} alt="" className="header-logo" />
+          <h1>Deskop</h1>
+        </div>
         <span className="self-name">Signed in as {selfName}</span>
       </header>
 

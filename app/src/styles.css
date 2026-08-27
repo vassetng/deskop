@@ -31,6 +31,13 @@ body {
   margin: 0;
 }
 
+.login-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  align-self: flex-start;
+}
+
 .subtitle {
   margin: -0.5rem 0 0.5rem;
   color: #9aa0a8;
@@ -83,6 +90,18 @@ body {
   justify-content: space-between;
   padding: 0.9rem 1.5rem;
   border-bottom: 1px solid #22252c;
+}
+
+.app-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.header-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 
 .app-header h1 {

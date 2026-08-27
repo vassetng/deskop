@@ -43,7 +43,8 @@
     },
     "win": {
       "target": "nsis",
-      "artifactName": "deskop-setup.exe"
+      "artifactName": "deskop-setup.exe",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
