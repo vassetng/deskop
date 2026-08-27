@@ -6,6 +6,11 @@ const dgram = require("dgram");
 const DISCOVERY_PORT = 41234;
 const DISCOVERY_REQUEST = "DESKOP_DISCOVER";
 
+// Without this, Chromium blocks unmuted audio.play() unless it's triggered
+// by a direct user gesture — which an incoming ring, arriving over the
+// socket from someone else, never is. Must be set before app is ready.
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 let mainWindow;
 
 function createWindow() {

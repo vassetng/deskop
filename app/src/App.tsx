@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Login from "./components/Login";
 import Roster, { StaffMember } from "./components/Roster";
 import RingModal from "./components/RingModal";
+import RingComposeModal from "./components/RingComposeModal";
 import Files from "./components/Files";
 import Directory from "./components/Directory";
 import Messages from "./components/Messages";
@@ -13,7 +14,8 @@ import { getSession, logout, Staff } from "./lib/auth";
 import { CallSession } from "./lib/webrtc";
 import logo from "./assets/logo.png";
 
-type IncomingRing = { fromId: string; fromName: string };
+type IncomingRing = { fromId: string; fromName: string; message: string };
+type RingTarget = { id: string; name: string };
 type ActiveCall = { session: CallSession; peerId: string; peerName: string };
 type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
 type Tab = "files" | "directory" | "messages" | "report" | "admin";
@@ -29,8 +31,12 @@ export default function App() {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [restoring, setRestoring] = useState(!!getSession());
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [callError, setCallError] = useState<string | null>(null);
   const [roster, setRoster] = useState<StaffMember[]>([]);
   const [incomingRing, setIncomingRing] = useState<IncomingRing | null>(null);
+  const [ringTarget, setRingTarget] = useState<RingTarget | null>(null);
+  const [ringAckToast, setRingAckToast] = useState<string | null>(null);
+  const ringAudioRef = useRef<HTMLAudioElement | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const activeCallRef = useRef<ActiveCall | null>(null);
   const [tab, setTab] = useState<Tab>("files");
@@ -58,8 +64,8 @@ export default function App() {
     return rosterRef.current.find((s) => s.id === staffId)?.name || "Someone";
   }
 
-  function startCall(peerId: string) {
-    const session = new CallSession(peerId, {
+  function createSession(peerId: string): CallSession {
+    return new CallSession(peerId, {
       onRemoteStream: (stream) => {
         pendingStreamRef.current = stream;
         if (remoteVideoElRef.current) remoteVideoElRef.current.srcObject = stream;
@@ -69,13 +75,25 @@ export default function App() {
         pendingStreamRef.current = null;
       },
     });
-    updateActiveCall({ session, peerId, peerName: nameFor(peerId) });
-    return session;
   }
 
+  // Local media must be acquired and added to the peer connection BEFORE
+  // createOffer()/handleOffer() generate any SDP — this app doesn't
+  // implement renegotiation, so tracks added afterward never reach the
+  // other side. That means CallView (which mounts once updateActiveCall
+  // runs) must not appear until start() has already resolved.
   async function startOutgoingCall(peerId: string, withVideo: boolean) {
-    const session = startCall(peerId);
-    await session.createOffer(withVideo);
+    const session = createSession(peerId);
+    try {
+      await session.start(withVideo);
+    } catch (err) {
+      console.error("Could not access camera/microphone", err);
+      setCallError("Couldn't access your camera/microphone. Check permissions and try again.");
+      session.close();
+      return;
+    }
+    updateActiveCall({ session, peerId, peerName: nameFor(peerId) });
+    await session.createOffer();
   }
 
   const beginSession = useCallback(() => {
@@ -98,11 +116,21 @@ export default function App() {
       }
     );
 
-    socket.on("ring:incoming", ({ from }: { from: { id: string; name: string } }) => {
-      setIncomingRing({ fromId: from.id, fromName: from.name });
-      window.deskop?.notify("Deskop", `${from.name} is ringing you`);
-      const audio = new Audio("/ring.wav");
-      audio.play().catch(() => {});
+    socket.on(
+      "ring:incoming",
+      ({ from, message }: { from: { id: string; name: string }; message: string }) => {
+        setIncomingRing({ fromId: from.id, fromName: from.name, message: message || "" });
+        window.deskop?.notify("Deskop", `${from.name} is asking for you${message ? `: ${message}` : ""}`);
+        ringAudioRef.current?.pause();
+        const audio = new Audio("/ring.wav");
+        audio.loop = true;
+        ringAudioRef.current = audio;
+        audio.play().catch((err) => console.warn("Ring tone blocked:", err.message));
+      }
+    );
+
+    socket.on("ring:acknowledged", ({ from }: { from: { id: string; name: string } }) => {
+      setRingAckToast(`${from.name} saw your ring.`);
     });
 
     socket.on(
@@ -117,8 +145,16 @@ export default function App() {
         offer: RTCSessionDescriptionInit;
         video: boolean;
       }) => {
-        const session = startCall(from);
-        session.withVideo = video;
+        const session = createSession(from);
+        try {
+          await session.start(video);
+        } catch (err) {
+          console.error("Could not access camera/microphone for incoming call", err);
+          setCallError("Couldn't answer — camera/microphone access failed.");
+          session.hangup();
+          return;
+        }
+        updateActiveCall({ session, peerId: from, peerName: nameFor(from) });
         await session.handleOffer(offer);
       }
     );
@@ -154,6 +190,18 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!callError) return;
+    const timer = setTimeout(() => setCallError(null), 6000);
+    return () => clearTimeout(timer);
+  }, [callError]);
+
+  useEffect(() => {
+    if (!ringAckToast) return;
+    const timer = setTimeout(() => setRingAckToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [ringAckToast]);
+
   function handleLoggedIn() {
     setConnectError(null);
     setStaff(getSession()!.staff);
@@ -169,23 +217,24 @@ export default function App() {
   }
 
   function handleRing(targetId: string) {
-    getSocket().emit("ring:send", targetId);
+    setRingTarget({ id: targetId, name: nameFor(targetId) });
+  }
+
+  function handleSendRing(message: string) {
+    if (!ringTarget) return;
+    getSocket().emit("ring:send", { to: ringTarget.id, message });
+    setRingTarget(null);
   }
 
   async function handleCall(targetId: string, withVideo: boolean) {
     await startOutgoingCall(targetId, withVideo);
   }
 
-  function handleAcceptRing() {
+  function handleAcknowledgeRing() {
     if (!incomingRing) return;
-    const targetId = incomingRing.fromId;
-    setIncomingRing(null);
-    handleCall(targetId, true);
-  }
-
-  function handleDismissRing() {
-    if (!incomingRing) return;
-    getSocket().emit("ring:dismiss", incomingRing.fromId);
+    getSocket().emit("ring:acknowledge", incomingRing.fromId);
+    ringAudioRef.current?.pause();
+    ringAudioRef.current = null;
     setIncomingRing(null);
   }
 
@@ -279,8 +328,23 @@ export default function App() {
       </main>
 
       {incomingRing && (
-        <RingModal fromName={incomingRing.fromName} onAccept={handleAcceptRing} onDismiss={handleDismissRing} />
+        <RingModal
+          fromName={incomingRing.fromName}
+          message={incomingRing.message}
+          onAcknowledge={handleAcknowledgeRing}
+        />
       )}
+
+      {ringTarget && (
+        <RingComposeModal
+          targetName={ringTarget.name}
+          onSend={handleSendRing}
+          onCancel={() => setRingTarget(null)}
+        />
+      )}
+
+      {callError && <div className="connect-error-toast">{callError}</div>}
+      {ringAckToast && <div className="connect-error-toast ring-ack-toast">{ringAckToast}</div>}
     </div>
   );
 }

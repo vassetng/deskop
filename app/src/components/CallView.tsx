@@ -20,8 +20,11 @@ export default function CallView({
   const [screenShareError, setScreenShareError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (localRef.current) session.start(localRef.current, withVideo).catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // By the time CallView mounts, App.tsx has already awaited
+    // session.start() before negotiating — localStream is ready here.
+    if (localRef.current && session.localStream) {
+      localRef.current.srcObject = session.localStream;
+    }
   }, [session]);
 
   async function shareWithSource(sourceId?: string) {

@@ -762,6 +762,46 @@ body {
   color: #e6e8eb;
 }
 
+.ring-message {
+  background: #12141a;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-style: italic;
+  color: #cdd1d6;
+  max-width: 320px;
+}
+
+.ring-compose {
+  background: #1a1d24;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ring-compose h2 {
+  margin: 0;
+}
+
+.ring-compose textarea {
+  padding: 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #2c3038;
+  background: #12141a;
+  color: #e6e8eb;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.ring-ack-toast {
+  background: #12301f;
+  color: #33d17a;
+}
+
 /* --- Directory --- */
 
 .directory-filters {

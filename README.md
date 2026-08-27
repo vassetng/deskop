@@ -148,10 +148,14 @@ privilege is not held by the client`, you have two options:
 
 ## Using it
 
-- **Roster**: see everyone currently online in the left sidebar, with quick Ring/Call buttons.
-- **Ring**: pops a full-screen alert + system notification + sound on their screen. They can
-  Accept (starts a call) or Dismiss.
-- **Call**: 1:1 video call directly from the roster or the directory.
+- **Roster**: see everyone currently online in the left sidebar, with quick Ring/Audio/Video
+  buttons.
+- **Ring**: a lightweight "come here" nudge, not a call — type an optional message ("Can you
+  come to my desk?"), and it pops a full-screen alert + system notification + a looping tone on
+  their screen. They just tap OK to acknowledge it (you get a brief "seen" confirmation); it
+  doesn't start or answer any call.
+- **Call**: pick Audio or Video from the roster or directory to start a 1:1 call directly —
+  ringing someone first is optional, calling doesn't require it.
 - **Screen share**: during a call, click "Share screen" to swap your video feed for your screen;
   click again to switch back to your camera.
 - **Files**: drag a file onto the dropzone (or click it) to upload; it appears for everyone

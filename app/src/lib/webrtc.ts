@@ -39,21 +39,28 @@ export class CallSession {
     };
   }
 
-  async start(localVideo: HTMLVideoElement, withVideo: boolean) {
+  /**
+   * Acquires local media and adds it to the peer connection. This MUST
+   * complete before createOffer()/handleOffer() — adding tracks after the
+   * initial offer/answer requires renegotiation (a fresh offer/answer round
+   * on "negotiationneeded"), which this app doesn't implement, so tracks
+   * added late are simply never carried to the other side. Binding the
+   * resulting localStream to a preview <video> element is a separate,
+   * later concern (see CallView), not this method's job.
+   */
+  async start(withVideo: boolean) {
     if (this.started) return;
     this.started = true;
     this.withVideo = withVideo;
     this.localStream = await navigator.mediaDevices.getUserMedia({ video: withVideo, audio: true });
     this.cameraTrack = this.localStream.getVideoTracks()[0] || null;
-    localVideo.srcObject = this.localStream;
     this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream!));
   }
 
-  async createOffer(withVideo: boolean) {
-    this.withVideo = withVideo;
+  async createOffer() {
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
-    getSocket().emit("call:offer", { to: this.peerId, offer, video: withVideo });
+    getSocket().emit("call:offer", { to: this.peerId, offer, video: this.withVideo });
   }
 
   async handleOffer(offer: RTCSessionDescriptionInit) {

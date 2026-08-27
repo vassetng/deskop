@@ -47,21 +47,26 @@ export function registerSocketHandlers(io) {
     io.emit("presence:roster", getPresenceRoster());
     logActivity("presence:online", { staffId: staff.id, name: staff.displayName });
 
-    // --- Ringer: summon a staff member (targeted by staffId) ---
+    // --- Ringer: summon a staff member (targeted by staffId). This is a
+    // lightweight "come here" nudge with an optional message, not a call —
+    // the recipient just acknowledges it, they don't "answer" it.
     socket.on(
       "ring:send",
-      safe((targetStaffId) => {
-        io.to(`staff:${targetStaffId}`).emit("ring:incoming", {
+      safe(({ to, message } = {}) => {
+        if (!to) return;
+        io.to(`staff:${to}`).emit("ring:incoming", {
           from: { id: staff.id, name: staff.displayName },
+          message: typeof message === "string" ? message.slice(0, 300) : "",
         });
-        logActivity("ring:sent", { from: staff.displayName, targetStaffId });
+        logActivity("ring:sent", { from: staff.displayName, targetStaffId: to });
       })
     );
 
     socket.on(
-      "ring:dismiss",
+      "ring:acknowledge",
       safe((targetStaffId) => {
-        io.to(`staff:${targetStaffId}`).emit("ring:dismissed", {
+        if (!targetStaffId) return;
+        io.to(`staff:${targetStaffId}`).emit("ring:acknowledged", {
           from: { id: staff.id, name: staff.displayName },
         });
       })
