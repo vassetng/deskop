@@ -70,9 +70,14 @@ export function registerSocketHandlers(io) {
     // --- WebRTC signaling relay (1:1 calls), targeted by staffId ---
     socket.on(
       "call:offer",
-      safe(({ to, offer } = {}) => {
+      safe(({ to, offer, video } = {}) => {
         if (!to || !offer) return;
-        io.to(`staff:${to}`).emit("call:offer", { from: staff.id, fromName: staff.displayName, offer });
+        io.to(`staff:${to}`).emit("call:offer", {
+          from: staff.id,
+          fromName: staff.displayName,
+          offer,
+          video: !!video,
+        });
         logActivity("call:started", { from: staff.displayName, targetStaffId: to });
       })
     );

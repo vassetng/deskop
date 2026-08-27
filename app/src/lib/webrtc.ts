@@ -12,8 +12,10 @@ export class CallSession {
   pc: RTCPeerConnection;
   localStream: MediaStream | null = null;
   cameraTrack: MediaStreamTrack | null = null;
+  withVideo = true;
   private handlers: CallHandlers;
   private started = false;
+  private sharingScreen = false;
 
   constructor(peerId: string, handlers: CallHandlers) {
     this.peerId = peerId;
@@ -37,19 +39,21 @@ export class CallSession {
     };
   }
 
-  async start(localVideo: HTMLVideoElement) {
+  async start(localVideo: HTMLVideoElement, withVideo: boolean) {
     if (this.started) return;
     this.started = true;
-    this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    this.withVideo = withVideo;
+    this.localStream = await navigator.mediaDevices.getUserMedia({ video: withVideo, audio: true });
     this.cameraTrack = this.localStream.getVideoTracks()[0] || null;
     localVideo.srcObject = this.localStream;
     this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream!));
   }
 
-  async createOffer() {
+  async createOffer(withVideo: boolean) {
+    this.withVideo = withVideo;
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
-    getSocket().emit("call:offer", { to: this.peerId, offer });
+    getSocket().emit("call:offer", { to: this.peerId, offer, video: withVideo });
   }
 
   async handleOffer(offer: RTCSessionDescriptionInit) {
@@ -73,21 +77,42 @@ export class CallSession {
     }
   }
 
-  async toggleScreenShare(): Promise<boolean> {
+  /**
+   * `sourceId` comes from Electron's desktopCapturer (via the app's screen
+   * picker) and lets us capture a specific screen/window directly through
+   * getUserMedia's Electron-specific constraint. Without it, falls back to
+   * the browser's own getDisplayMedia picker (used only outside Electron).
+   */
+  async toggleScreenShare(sourceId?: string): Promise<boolean> {
     const sender = this.pc.getSenders().find((s) => s.track?.kind === "video");
-    if (!sender) return false;
+    if (!sender) {
+      throw new Error("No active video track to share your screen through — camera video isn't running.");
+    }
 
-    const isSharingScreen = sender.track?.label.toLowerCase().includes("screen");
-    if (isSharingScreen && this.cameraTrack) {
-      await sender.replaceTrack(this.cameraTrack);
+    if (this.sharingScreen) {
+      if (this.cameraTrack) await sender.replaceTrack(this.cameraTrack);
+      this.sharingScreen = false;
       return false;
     }
 
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const screenStream = sourceId
+      ? await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: "desktop",
+              chromeMediaSourceId: sourceId,
+            },
+          },
+        } as MediaStreamConstraints)
+      : await navigator.mediaDevices.getDisplayMedia({ video: true });
+
     const screenTrack = screenStream.getVideoTracks()[0];
     await sender.replaceTrack(screenTrack);
+    this.sharingScreen = true;
     screenTrack.onended = () => {
       if (this.cameraTrack) sender.replaceTrack(this.cameraTrack);
+      this.sharingScreen = false;
     };
     return true;
   }

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Notification, ipcMain } = require("electron");
+const { app, BrowserWindow, Notification, ipcMain, desktopCapturer } = require("electron");
 const path = require("path");
 const os = require("os");
 const dgram = require("dgram");
@@ -44,6 +44,18 @@ ipcMain.handle("get-os-username", () => {
   } catch {
     return null;
   }
+});
+
+ipcMain.handle("get-screen-sources", async () => {
+  const sources = await desktopCapturer.getSources({
+    types: ["screen", "window"],
+    thumbnailSize: { width: 240, height: 135 },
+  });
+  return sources.map((s) => ({
+    id: s.id,
+    name: s.name,
+    thumbnail: s.thumbnail.isEmpty() ? null : s.thumbnail.toDataURL(),
+  }));
 });
 
 ipcMain.handle("discover-servers", () => {

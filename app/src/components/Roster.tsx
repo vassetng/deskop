@@ -10,7 +10,7 @@ export default function Roster({
   roster: StaffMember[];
   selfId: string | null;
   onRing: (id: string) => void;
-  onCall: (id: string) => void;
+  onCall: (id: string, withVideo: boolean) => void;
   busy: boolean;
 }) {
   const others = roster.filter((s) => s.id !== selfId);
@@ -26,10 +26,13 @@ export default function Roster({
             <span className="staff-name">{staff.name}</span>
             <div className="roster-actions">
               <button disabled={busy} onClick={() => onRing(staff.id)} title="Ring to summon">
-                🔔 Ring
+                🔔
               </button>
-              <button disabled={busy} onClick={() => onCall(staff.id)} title="Start a call">
-                📞 Call
+              <button disabled={busy} onClick={() => onCall(staff.id, false)} title="Audio call">
+                🎤
+              </button>
+              <button disabled={busy} onClick={() => onCall(staff.id, true)} title="Video call">
+                🎥
               </button>
             </div>
           </li>

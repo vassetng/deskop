@@ -19,7 +19,15 @@ type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "cha
 type Tab = "files" | "directory" | "messages" | "report" | "admin";
 
 export default function App() {
-  const [staff, setStaff] = useState<Staff | null>(getSession()?.staff ?? null);
+  // Deliberately starts null even if a session is already in sessionStorage
+  // (e.g. after a reload): `staff` only flips true once beginSession() has
+  // actually connected the socket, in the mount effect below. Otherwise the
+  // authenticated tree (Files, etc.) would mount in the very first commit,
+  // and its effects — which call getSocket() — fire before App's own mount
+  // effect gets a chance to call connectSocket() (React fires child effects
+  // before parent effects within the same commit).
+  const [staff, setStaff] = useState<Staff | null>(null);
+  const [restoring, setRestoring] = useState(!!getSession());
   const [connectError, setConnectError] = useState<string | null>(null);
   const [roster, setRoster] = useState<StaffMember[]>([]);
   const [incomingRing, setIncomingRing] = useState<IncomingRing | null>(null);
@@ -65,6 +73,11 @@ export default function App() {
     return session;
   }
 
+  async function startOutgoingCall(peerId: string, withVideo: boolean) {
+    const session = startCall(peerId);
+    await session.createOffer(withVideo);
+  }
+
   const beginSession = useCallback(() => {
     const socket = connectSocket();
 
@@ -94,8 +107,18 @@ export default function App() {
 
     socket.on(
       "call:offer",
-      async ({ from, offer }: { from: string; fromName: string; offer: RTCSessionDescriptionInit }) => {
+      async ({
+        from,
+        offer,
+        video,
+      }: {
+        from: string;
+        fromName: string;
+        offer: RTCSessionDescriptionInit;
+        video: boolean;
+      }) => {
         const session = startCall(from);
+        session.withVideo = video;
         await session.handleOffer(offer);
       }
     );
@@ -121,7 +144,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (staff) beginSession();
+    const existing = getSession()?.staff;
+    if (existing) {
+      beginSession();
+      setStaff(existing);
+    }
+    setRestoring(false);
     return () => disconnectSocket();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -144,16 +172,15 @@ export default function App() {
     getSocket().emit("ring:send", targetId);
   }
 
-  async function handleCall(targetId: string) {
-    const session = startCall(targetId);
-    await session.createOffer();
+  async function handleCall(targetId: string, withVideo: boolean) {
+    await startOutgoingCall(targetId, withVideo);
   }
 
   function handleAcceptRing() {
     if (!incomingRing) return;
     const targetId = incomingRing.fromId;
     setIncomingRing(null);
-    handleCall(targetId);
+    handleCall(targetId, true);
   }
 
   function handleDismissRing() {
@@ -166,6 +193,10 @@ export default function App() {
     const target = roster.find((s) => s.id === staffId);
     setMessagesTarget({ kind: "dm", staffId, name: target?.name || "Staff" });
     setTab("messages");
+  }
+
+  if (restoring) {
+    return <div className="login-screen" />;
   }
 
   if (!staff) {
@@ -205,6 +236,7 @@ export default function App() {
             <CallView
               session={activeCall.session}
               peerName={activeCall.peerName}
+              withVideo={activeCall.session.withVideo}
               bindRemoteVideo={bindRemoteVideo}
               onEnd={() => updateActiveCall(null)}
             />

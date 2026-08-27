@@ -11,7 +11,7 @@ export default function Directory({
 }: {
   onlineStaffIds: Set<OnlineStaffId>;
   onRing: (staffId: string) => void;
-  onCall: (staffId: string) => void;
+  onCall: (staffId: string, withVideo: boolean) => void;
   onMessage: (staffId: string) => void;
 }) {
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -77,8 +77,11 @@ export default function Directory({
                 <button disabled={!online} onClick={() => onRing(s.id)}>
                   Ring
                 </button>
-                <button disabled={!online} onClick={() => onCall(s.id)}>
-                  Call
+                <button disabled={!online} onClick={() => onCall(s.id, false)}>
+                  🎤 Audio
+                </button>
+                <button disabled={!online} onClick={() => onCall(s.id, true)}>
+                  🎥 Video
                 </button>
               </div>
             </li>
