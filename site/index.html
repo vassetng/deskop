@@ -118,10 +118,22 @@
   .feature-card h3 { margin: 0 0 0.4rem; font-size: 1rem; }
   .feature-card p { margin: 0; color: #9aa0a8; font-size: 0.88rem; line-height: 1.5; }
 
+  .download-step {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7078;
+    margin: 2rem 0 0.75rem;
+  }
+  .download-step:first-of-type {
+    margin-top: 0;
+  }
+
   .download-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1rem;
+    margin-bottom: 0.5rem;
   }
   .download-card {
     background: #171a20;
@@ -256,9 +268,21 @@
     <h2>Download</h2>
     <p class="section-sub">
       Deskop is self-hosted: one machine on your office network runs the server, and every
-      laptop runs the client and points at it. There's no cloud service to sign up for.
+      laptop runs the app and connects to it automatically. There's no cloud service to sign up
+      for — both downloads below are plain double-click-to-run, no Node.js or setup required.
     </p>
 
+    <h3 class="download-step">1. One machine — the office server</h3>
+    <div class="download-grid">
+      <div class="download-card">
+        <h3>🪟 Windows server</h3>
+        <span class="badge">Standalone .exe</span>
+        <p class="meta">Unzip, then double-click deskop-server.exe</p>
+        <a class="btn btn-primary" href="https://github.com/vassetng/deskop/releases/latest/download/deskop-server-win.zip">Download the server</a>
+      </div>
+    </div>
+
+    <h3 class="download-step">2. Every staff laptop — the app</h3>
     <div class="download-grid">
       <div class="download-card">
         <h3>🪟 Windows</h3>

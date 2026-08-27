@@ -5,12 +5,18 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "dev": "node src/index.js"
+    "dev": "node src/index.js",
+    "bundle": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/server.cjs",
+    "dist:win": "npm run bundle && pkg dist/server.cjs --targets node18-win-x64 --output dist/deskop-server.exe"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.1",
+    "@yao-pkg/pkg": "^5.16.1"
   }
 }

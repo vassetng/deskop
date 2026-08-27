@@ -1,13 +1,14 @@
 import express from "express";
 import multer from "multer";
+import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { fileURLToPath } from "url";
 import { addFile, getFiles } from "./store.js";
 import { authMiddleware, requireAuth, resolveStaffFromToken } from "./auth.js";
+import { serverPath } from "./paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
+const UPLOAD_DIR = serverPath("uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),

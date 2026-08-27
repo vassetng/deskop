@@ -28,8 +28,13 @@ This installs both `server/` and `app/` via npm workspaces.
 
 ## Run the server
 
-Pick one machine to act as the office server (a spare desktop, a always-on machine, etc). From
-the repo root:
+Pick one machine to act as the office server (a spare desktop, an always-on machine, etc).
+
+**Easiest: download the standalone server** — no Node.js needed on that machine. Grab
+`deskop-server-win.zip` from the [latest release](https://github.com/vassetng/deskop/releases/latest),
+unzip it, and double-click `deskop-server.exe`. A console window stays open while it runs.
+
+**From source** (if you're already set up for development):
 
 ```bash
 npm run server
@@ -37,6 +42,19 @@ npm run server
 
 It listens on port 4000 by default (`PORT=xxxx npm run server` to change it). Note the machine's
 LAN IP — but staff shouldn't need this; see below.
+
+### Building the standalone server .exe
+
+```bash
+cd server
+npm run dist:win
+```
+
+Bundles the server to a single CommonJS file with esbuild (sidesteps `pkg`'s flaky ESM support),
+then packages it with `pkg` into `server/dist/deskop-server.exe`. To distribute it, zip that
+`.exe` together with the `server/public/` folder (the standalone build reads `data/`,
+`uploads/`, and `public/` from next to wherever the `.exe` is actually placed, not from inside
+the repo) — that's exactly what `deskop-server-win.zip` on the releases page is.
 
 ## Run the app (per staff laptop)
 
@@ -89,6 +107,11 @@ landing page with a features overview and a Download section. It's a static page
 The Windows download button links to `/downloads/deskop-setup.exe`. That file doesn't exist
 until you build it (see below); until then the page automatically falls back to "run from
 source" instructions.
+
+There's also a separate public marketing site in `site/` (deployed independently, e.g. to
+Vercel) with its own Download section pointing at the GitHub Releases page — that one offers
+both the server zip and the app installer, since it's meant for people who aren't already on
+the office network.
 
 ### Building the Windows installer
 

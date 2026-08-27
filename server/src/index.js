@@ -1,8 +1,7 @@
 import express from "express";
 import cors from "cors";
 import http from "http";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from "fs";
 import { Server } from "socket.io";
 import { createFilesRouter } from "./files.js";
 import { createReportsRouter } from "./reports.js";
@@ -13,8 +12,8 @@ import { createAdminRouter } from "./admin.js";
 import { registerSocketHandlers } from "./socket.js";
 import { ensureBootstrapAdmin } from "./store.js";
 import { getLanAddresses, startDiscoveryResponder } from "./discovery.js";
+import { serverPath, isPackaged } from "./paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 4000;
 
 const app = express();
@@ -31,8 +30,18 @@ app.use("/messages", createMessagesRouter());
 app.use("/admin", createAdminRouter());
 app.use("/files", createFilesRouter(io));
 app.use("/reports", createReportsRouter());
-app.use("/downloads", express.static(path.join(__dirname, "..", "..", "app", "release")));
-app.use(express.static(path.join(__dirname, "..", "public")));
+
+const downloadsDir = serverPath("..", "app", "release");
+if (fs.existsSync(downloadsDir)) {
+  app.use("/downloads", express.static(downloadsDir));
+}
+
+const publicDir = serverPath("public");
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+} else if (isPackaged) {
+  console.warn(`No public/ folder found next to the .exe — the landing page won't be served.`);
+}
 
 registerSocketHandlers(io);
 

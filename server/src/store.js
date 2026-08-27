@@ -1,10 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import crypto from "crypto";
+import { serverPath } from "./paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, "..", "data");
+const DATA_DIR = serverPath("data");
 const FILES_DB = path.join(DATA_DIR, "files.json");
 const REPORTS_DB = path.join(DATA_DIR, "reports.json");
 const STAFF_DB = path.join(DATA_DIR, "staff.json");

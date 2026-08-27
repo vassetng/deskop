@@ -55,11 +55,18 @@ export async function login(
   password: string,
   connectionPassword: string | null
 ): Promise<Staff> {
-  const res = await fetch(`${serverUrl}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${serverUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch {
+    throw new Error(
+      `Couldn't reach a Deskop server at ${serverUrl}. Make sure the office server is running and the address is correct.`
+    );
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Login failed");
