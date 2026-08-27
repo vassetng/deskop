@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deskop — Office flow for your team</title>
+<meta name="description" content="Deskop: presence, document sharing, a ringer to summon staff, and calls with screen sharing — one self-hosted desktop app for your office." />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0f1115;
+    color: #e6e8eb;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 1.5rem; }
+
+  header.site-header {
+    padding: 1.2rem 0;
+    border-bottom: 1px solid #22252c;
+  }
+  header.site-header .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+  }
+  nav.site-nav a {
+    text-decoration: none;
+    color: #9aa0a8;
+    margin-left: 1.5rem;
+    font-size: 0.9rem;
+  }
+  nav.site-nav a:hover { color: #e6e8eb; }
+
+  .hero {
+    padding: 5rem 0 4rem;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 2.6rem;
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .hero p.tagline {
+    font-size: 1.15rem;
+    color: #9aa0a8;
+    max-width: 560px;
+    margin: 0 auto 2rem;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.95rem;
+    border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: #4a7dff;
+    color: white;
+  }
+  .btn-primary:hover { background: #3a6ce0; }
+  .btn-secondary {
+    background: #171a20;
+    border-color: #2c3038;
+    color: #e6e8eb;
+  }
+  .btn-secondary:hover { border-color: #4a7dff; }
+
+  section {
+    padding: 3.5rem 0;
+    border-top: 1px solid #22252c;
+  }
+  section h2 {
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem;
+  }
+  section p.section-sub {
+    color: #9aa0a8;
+    margin: 0 0 2rem;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+  }
+  .feature-card {
+    background: #171a20;
+    border: 1px solid #22252c;
+    border-radius: 12px;
+    padding: 1.4rem;
+  }
+  .feature-card .icon { font-size: 1.6rem; margin-bottom: 0.6rem; }
+  .feature-card h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+  .feature-card p { margin: 0; color: #9aa0a8; font-size: 0.88rem; line-height: 1.5; }
+
+  .download-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+  .download-card {
+    background: #171a20;
+    border: 1px solid #22252c;
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .download-card h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .download-card .meta {
+    font-size: 0.8rem;
+    color: #6b7078;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: #22252c;
+    color: #9aa0a8;
+    width: fit-content;
+  }
+  .badge.soon { background: #3a2e12; color: #e0b356; }
+
+  .setup-steps {
+    background: #12141a;
+    border: 1px solid #22252c;
+    border-radius: 12px;
+    padding: 1.5rem 1.5rem 1.5rem 2.5rem;
+    margin-top: 1.5rem;
+  }
+  .setup-steps li {
+    margin-bottom: 0.6rem;
+    line-height: 1.5;
+  }
+  .setup-steps code, .download-card code {
+    background: #22252c;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  footer {
+    padding: 2.5rem 0;
+    border-top: 1px solid #22252c;
+    color: #6b7078;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+  footer a { color: #9aa0a8; text-decoration: none; }
+  footer a:hover { color: #e6e8eb; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <span class="brand">🔔 Deskop</span>
+    <nav class="site-nav">
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/vassetng/deskop" target="_blank" rel="noreferrer">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <h1>Office flow, one app.</h1>
+    <p class="tagline">
+      See who's online, share documents instantly, ring a colleague to grab their attention,
+      and jump into a call with screen sharing — all from one desktop app your whole team runs.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#download">Get Deskop</a>
+      <a class="btn btn-secondary" href="#features">See what it does</a>
+    </div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What's inside</h2>
+    <p class="section-sub">Everything the office needs to stay connected, in one window.</p>
+    <div class="features">
+      <div class="feature-card">
+        <div class="icon">📁</div>
+        <h3>Document sharing</h3>
+        <p>Drag a file in and it's instantly available to everyone signed in — no email attachments, no shared drive setup.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔔</div>
+        <h3>Ringer</h3>
+        <p>Summon a colleague with one click. They get a full-screen alert, a system notification, and a sound — hard to miss.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📞</div>
+        <h3>Voice & video calls</h3>
+        <p>Start a 1:1 call directly from the staff list. No meeting links, no separate app.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🖥️</div>
+        <h3>Screen sharing</h3>
+        <p>Swap your camera for your screen mid-call with one button, so you can walk a teammate through something live.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📝</div>
+        <h3>Daily reports</h3>
+        <p>Staff submit a quick end-of-day report — tasks, blockers, plan for tomorrow. Managers review the day's reports behind an admin code.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>Download</h2>
+    <p class="section-sub">
+      Deskop is self-hosted: one machine on your office network runs the server, and every
+      laptop runs the client and points at it. There's no cloud service to sign up for.
+    </p>
+
+    <div class="download-grid">
+      <div class="download-card">
+        <h3>🪟 Windows</h3>
+        <span class="badge soon">Coming soon</span>
+        <p class="meta">Packaged installer not published yet</p>
+        <a class="btn btn-secondary" href="https://github.com/vassetng/deskop/releases" target="_blank" rel="noreferrer">Check GitHub Releases</a>
+      </div>
+
+      <div class="download-card">
+        <h3>🍎 macOS</h3>
+        <span class="badge soon">Run from source</span>
+        <p class="meta">Packaged installer coming soon</p>
+        <a class="btn btn-secondary" href="#run-from-source">See setup steps</a>
+      </div>
+
+      <div class="download-card">
+        <h3>🐧 Linux</h3>
+        <span class="badge soon">Run from source</span>
+        <p class="meta">Packaged installer coming soon</p>
+        <a class="btn btn-secondary" href="#run-from-source">See setup steps</a>
+      </div>
+    </div>
+
+    <div class="setup-steps" id="run-from-source">
+      <strong>Running from source</strong>
+      <ol>
+        <li>Install <a href="https://nodejs.org" target="_blank" rel="noreferrer">Node.js 18+</a>.</li>
+        <li>Clone the repo: <code>git clone https://github.com/vassetng/deskop.git</code></li>
+        <li>Pick one machine to run the server: <code>npm install</code>, then <code>npm run server</code>.</li>
+        <li>On every staff laptop, run the client: in <code>app/</code>, <code>npm install</code> then <code>npm run dev</code>.</li>
+        <li>On first launch, enter your name and the office server's address (e.g. <code>http://192.168.1.10:4000</code>).</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Deskop — a self-hosted office flow app. No accounts, no cloud, runs on your own network.
+    <br />
+    <a href="https://github.com/vassetng/deskop" target="_blank" rel="noreferrer">Source on GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>

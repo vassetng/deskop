@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+server/uploads/*
+!server/uploads/.gitkeep
+server/data/*.json
+*.log
+.claude/scheduled_tasks.lock
