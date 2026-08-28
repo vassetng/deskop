@@ -57,7 +57,7 @@ export default function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     setSubmitting(true);
     setError(null);
     try {
-      await login(url, username.trim(), password, manualMode === "online" ? connectionPassword : null);
+      await login(url, username.trim(), password, connectionPassword || null);
       onLoggedIn();
     } catch (err: any) {
       setError(err.message || "Couldn't log in. Check your credentials and try again.");
@@ -167,15 +167,13 @@ export default function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                     placeholder="https://your-office-server.example.com"
                   />
                 </label>
-                <label>
-                  Connection password
-                  <input
-                    type="password"
-                    value={connectionPassword}
-                    onChange={(e) => setConnectionPassword(e.target.value)}
-                    placeholder="Ask your admin"
-                  />
-                </label>
+                <p className="mode-hint">
+                  This app doesn't provide HTTPS itself — an https:// address only works if the
+                  server is already sitting behind your own reverse proxy or tunnel that
+                  terminates TLS. If you're just entering a plain LAN address (like a private
+                  192.x/172.x IP), use <strong>WiFi / LAN</strong> instead — the connection
+                  password below works there too.
+                </p>
               </>
             )}
 
@@ -185,6 +183,15 @@ export default function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
 
         {readyToLogin && (
           <>
+            <label>
+              Connection password
+              <input
+                type="password"
+                value={connectionPassword}
+                onChange={(e) => setConnectionPassword(e.target.value)}
+                placeholder="Only needed if your admin set one (optional)"
+              />
+            </label>
             <label>
               Username
               {usernameAutoFilled && <span className="meta"> (from this computer)</span>}

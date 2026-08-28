@@ -76,6 +76,7 @@ export function registerSocketHandlers(io) {
         io.to(`staff:${targetStaffId}`).emit("ring:acknowledged", {
           from: { id: staff.id, name: staff.displayName },
         });
+        logActivity("ring:acknowledged", { name: staff.displayName });
       })
     );
 
@@ -100,6 +101,7 @@ export function registerSocketHandlers(io) {
       safe(({ to } = {}) => {
         if (!to) return;
         io.to(`staff:${to}`).emit("call:accept", { from: staff.id });
+        logActivity("call:accepted", { name: staff.displayName });
       })
     );
 
@@ -212,6 +214,7 @@ export function registerSocketHandlers(io) {
         call.participants.set(staff.id, { name: staff.displayName });
         socket.join(`call:${callId}`);
         socket.emit("group-call:joined", { callId, video: call.video, participants: existing });
+        logActivity("call:accepted", { name: staff.displayName });
         socket.to(`call:${callId}`).emit("group-call:peer-joined", {
           callId,
           peer: { id: staff.id, name: staff.displayName },

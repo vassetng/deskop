@@ -5,6 +5,7 @@ export default function DailyReport() {
   const [tasksCompleted, setTasksCompleted] = useState("");
   const [blockers, setBlockers] = useState("");
   const [planForTomorrow, setPlanForTomorrow] = useState("");
+  const [link, setLink] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,13 +19,14 @@ export default function DailyReport() {
       const res = await authFetch("/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasksCompleted, blockers, planForTomorrow }),
+        body: JSON.stringify({ tasksCompleted, blockers, planForTomorrow, link }),
       });
       if (!res.ok) throw new Error("Submit failed");
       setSubmitted(true);
       setTasksCompleted("");
       setBlockers("");
       setPlanForTomorrow("");
+      setLink("");
     } catch {
       setError("Couldn't submit your report. Check your connection to the server and try again.");
     } finally {
@@ -79,6 +81,18 @@ export default function DailyReport() {
             }}
             placeholder="What's next? (optional)"
             rows={2}
+          />
+        </label>
+        <label>
+          Report link
+          <input
+            type="url"
+            value={link}
+            onChange={(e) => {
+              setLink(e.target.value);
+              setSubmitted(false);
+            }}
+            placeholder="Link to a doc, sheet, or deliverable (optional)"
           />
         </label>
         {error && <div className="report-error">{error}</div>}

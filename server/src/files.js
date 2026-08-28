@@ -3,7 +3,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { addFile, getFiles } from "./store.js";
+import { addFile, getFiles, logActivity } from "./store.js";
 import { authMiddleware, requireAuth, resolveStaffFromToken } from "./auth.js";
 import { serverPath } from "./paths.js";
 
@@ -41,6 +41,7 @@ export function createFilesRouter(io) {
     };
     addFile(meta);
     io.emit("files:new", meta);
+    logActivity("file:shared", { name: req.staff.displayName, fileName: meta.originalName });
     res.json(meta);
   });
 

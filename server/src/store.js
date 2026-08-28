@@ -70,7 +70,16 @@ export function getFiles() {
 // --- Reports ---
 let reports = loadJson(REPORTS_DB, []);
 
+// Resubmitting the same day replaces that day's report in place (same id,
+// fresh submittedAt, status reset to "new" so admins see it needs
+// re-review) instead of stacking duplicates — one report per staff per day.
 export function addReport(report) {
+  const idx = reports.findIndex((r) => r.authorId === report.authorId && r.date === report.date);
+  if (idx !== -1) {
+    reports[idx] = { ...report, id: reports[idx].id };
+    saveJson(REPORTS_DB, reports);
+    return reports[idx];
+  }
   reports.push(report);
   saveJson(REPORTS_DB, reports);
   return report;

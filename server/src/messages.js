@@ -3,7 +3,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { getDmMessages, getChannelMessages, findMessageByAttachment } from "./store.js";
+import { getDmMessages, getChannelMessages, findMessageByAttachment, logActivity } from "./store.js";
 import { authMiddleware, requireAuth, resolveStaffFromToken } from "./auth.js";
 import { serverPath } from "./paths.js";
 
@@ -54,6 +54,7 @@ export function createMessagesRouter() {
   // socket — this endpoint alone doesn't make the file visible to anyone.
   router.post("/attachments", authMiddleware, requireAuth, upload.single("file"), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    logActivity("file:shared", { name: req.staff.displayName, fileName: req.file.originalname });
     res.json({
       storedName: req.file.filename,
       originalName: req.file.originalname,

@@ -15,6 +15,18 @@ type ActivityEntry = {
   at: string;
 };
 
+type Scorecard = {
+  staffId: string;
+  name: string;
+  department: string;
+  expectedDays: number;
+  submittedDays: number;
+  missedDays: number;
+  punctualityPct: number;
+  currentStreak: number;
+  submittedToday: boolean;
+};
+
 type Report = {
   id: string;
   authorName: string;
@@ -22,6 +34,7 @@ type Report = {
   tasksCompleted: string;
   blockers: string;
   planForTomorrow: string;
+  link: string;
   date: string;
   submittedAt: string;
   status: "new" | "reviewed";
@@ -42,10 +55,18 @@ function describeActivity(entry: ActivityEntry): string {
       return `${d.name} went offline`;
     case "ring:sent":
       return `${d.from} rang a colleague`;
+    case "ring:acknowledged":
+      return `${d.name} acknowledged a ring`;
     case "call:started":
       return `${d.from} started a call`;
+    case "call:accepted":
+      return `${d.name} answered a call`;
+    case "group-call:started":
+      return `${d.from} started a group call (${d.count} invited)`;
     case "report:submitted":
       return `${d.name} submitted a daily report`;
+    case "file:shared":
+      return `${d.name} shared "${d.fileName}"`;
     case "staff:created":
       return `${d.by} created an account for ${d.name}`;
     default:
@@ -54,11 +75,12 @@ function describeActivity(entry: ActivityEntry): string {
 }
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "reports" | "staff" | "departments">("overview");
+  const [tab, setTab] = useState<"overview" | "reports" | "scorecards" | "staff" | "departments">("overview");
   const [stats, setStats] = useState<Stats | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [reportDate, setReportDate] = useState(todayISO());
+  const [scorecards, setScorecards] = useState<Scorecard[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
 
@@ -69,6 +91,10 @@ export default function AdminDashboard() {
 
   function loadReports(date: string) {
     authFetch(`/reports?date=${date}`).then((r) => r.json()).then(setReports).catch(() => {});
+  }
+
+  function loadScorecards() {
+    authFetch("/admin/scorecards").then((r) => r.json()).then(setScorecards).catch(() => {});
   }
 
   function loadStaff() {
@@ -87,6 +113,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === "reports") loadReports(reportDate);
     if (tab === "staff") loadStaff();
+    if (tab === "scorecards") loadScorecards();
   }, [tab, reportDate]);
 
   async function markReportStatus(id: string, status: "new" | "reviewed") {
@@ -106,6 +133,9 @@ export default function AdminDashboard() {
         </button>
         <button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>
           Reports
+        </button>
+        <button className={tab === "scorecards" ? "active" : ""} onClick={() => setTab("scorecards")}>
+          Scorecards
         </button>
         <button className={tab === "staff" ? "active" : ""} onClick={() => setTab("staff")}>
           Staff
@@ -182,6 +212,16 @@ export default function AdminDashboard() {
                     <p>{r.planForTomorrow}</p>
                   </div>
                 )}
+                {r.link && (
+                  <div className="report-field">
+                    <span className="report-label">Link</span>
+                    <p>
+                      <a href={r.link} target="_blank" rel="noreferrer">
+                        {r.link}
+                      </a>
+                    </p>
+                  </div>
+                )}
                 <div className="report-status-row">
                   <span className={`badge ${r.status === "reviewed" ? "reviewed" : ""}`}>{r.status}</span>
                   {r.status === "new" ? (
@@ -189,6 +229,50 @@ export default function AdminDashboard() {
                   ) : (
                     <button onClick={() => markReportStatus(r.id, "new")}>Mark unreviewed</button>
                   )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {tab === "scorecards" && (
+        <div>
+          <h2>Punctuality scorecards</h2>
+          <p className="section-sub">
+            Daily-report consistency over the last 30 weekdays (or since the account was created, if newer).
+          </p>
+          {scorecards.length === 0 && <p className="empty">No staff accounts yet.</p>}
+          <ul className="report-list">
+            {scorecards.map((sc) => (
+              <li key={sc.staffId} className="report-card">
+                <div className="report-card-header">
+                  <strong>
+                    {sc.name} <span className="meta">· {sc.department}</span>
+                  </strong>
+                  <span className={`badge ${sc.submittedToday ? "reviewed" : ""}`}>
+                    {sc.submittedToday ? "submitted today" : "no report today yet"}
+                  </span>
+                </div>
+                <div className="scorecard-stats">
+                  <div className="stat-tile">
+                    <span className="stat-value">{sc.punctualityPct}%</span>
+                    <span className="stat-label">On-time rate</span>
+                  </div>
+                  <div className="stat-tile">
+                    <span className="stat-value">{sc.currentStreak}</span>
+                    <span className="stat-label">Current streak</span>
+                  </div>
+                  <div className="stat-tile">
+                    <span className="stat-value">{sc.missedDays}</span>
+                    <span className="stat-label">Missed days</span>
+                  </div>
+                  <div className="stat-tile">
+                    <span className="stat-value">
+                      {sc.submittedDays}/{sc.expectedDays}
+                    </span>
+                    <span className="stat-label">Days submitted</span>
+                  </div>
                 </div>
               </li>
             ))}

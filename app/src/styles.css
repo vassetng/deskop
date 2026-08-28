@@ -436,7 +436,8 @@ body {
   color: #9aa0a8;
 }
 
-.report-form textarea {
+.report-form textarea,
+.report-form input {
   padding: 0.7rem;
   border-radius: 8px;
   border: 1px solid #2c3038;
@@ -1029,6 +1030,24 @@ body {
   border-radius: 7px;
   font-size: 0.85rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-left: 0.5rem;
 }
 
 .conversation-list button:hover {
@@ -1179,6 +1198,21 @@ body {
 .stat-label {
   font-size: 0.75rem;
   color: #9aa0a8;
+}
+
+.scorecard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.scorecard-stats .stat-tile {
+  padding: 0.7rem 0.9rem;
+}
+
+.scorecard-stats .stat-value {
+  font-size: 1.2rem;
 }
 
 .section-heading {

@@ -11,7 +11,7 @@ export function createReportsRouter() {
   const router = express.Router();
 
   router.post("/", authMiddleware, requireAuth, (req, res) => {
-    const { tasksCompleted, blockers, planForTomorrow } = req.body || {};
+    const { tasksCompleted, blockers, planForTomorrow, link } = req.body || {};
     if (!tasksCompleted) {
       return res.status(400).json({ error: "tasksCompleted is required" });
     }
@@ -24,6 +24,7 @@ export function createReportsRouter() {
       tasksCompleted: String(tasksCompleted).slice(0, 4000),
       blockers: String(blockers || "").slice(0, 2000),
       planForTomorrow: String(planForTomorrow || "").slice(0, 2000),
+      link: link ? String(link).slice(0, 500) : "",
       date: todayISO(),
       submittedAt: new Date().toISOString(),
       status: "new",

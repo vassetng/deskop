@@ -5,12 +5,14 @@ export default function Roster({
   selfId,
   onRing,
   onCall,
+  onMessage,
   busy,
 }: {
   roster: StaffMember[];
   selfId: string | null;
   onRing: (id: string) => void;
   onCall: (id: string, withVideo: boolean) => void;
+  onMessage: (id: string) => void;
   busy: boolean;
 }) {
   const others = roster.filter((s) => s.id !== selfId);
@@ -25,6 +27,9 @@ export default function Roster({
             <span className="dot" />
             <span className="staff-name">{staff.name}</span>
             <div className="roster-actions">
+              <button onClick={() => onMessage(staff.id)} title="Message">
+                💬
+              </button>
               <button disabled={busy} onClick={() => onRing(staff.id)} title="Ring to summon">
                 🔔
               </button>

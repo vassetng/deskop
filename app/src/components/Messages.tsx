@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch, getServerUrl, getSession, getToken, Staff } from "../lib/auth";
 import { getSocket } from "../lib/socket";
 
-type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
+export type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
 
 type Attachment = { storedName: string; originalName: string; size: number };
 
@@ -17,7 +17,7 @@ type Message = {
   sentAt: string;
 };
 
-function conversationKey(c: Conversation): string {
+export function conversationKey(c: Conversation): string {
   return c.kind === "dm" ? `dm:${c.staffId}` : `channel:${c.department}`;
 }
 
@@ -31,11 +31,18 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function Messages({ initialConversation }: { initialConversation: Conversation | null }) {
+export default function Messages({
+  selected,
+  onSelect,
+  unreadCounts,
+}: {
+  selected: Conversation | null;
+  onSelect: (c: Conversation) => void;
+  unreadCounts: Record<string, number>;
+}) {
   const self = getSession()!.staff;
   const [staff, setStaff] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
-  const [selected, setSelected] = useState<Conversation | null>(initialConversation);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -47,10 +54,6 @@ export default function Messages({ initialConversation }: { initialConversation:
     authFetch("/auth/staff").then((r) => r.json()).then(setStaff).catch(() => {});
     authFetch("/departments").then((r) => r.json()).then(setDepartments).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (initialConversation) setSelected(initialConversation);
-  }, [initialConversation]);
 
   const visibleChannels = useMemo(() => {
     if (self.role === "admin") return departments;
@@ -134,29 +137,37 @@ export default function Messages({ initialConversation }: { initialConversation:
       <div className="conversation-list">
         <h3>Channels</h3>
         <ul>
-          {visibleChannels.map((d) => (
-            <li key={d}>
-              <button
-                className={selected?.kind === "channel" && selected.department === d ? "active" : ""}
-                onClick={() => setSelected({ kind: "channel", department: d })}
-              >
-                # {d}
-              </button>
-            </li>
-          ))}
+          {visibleChannels.map((d) => {
+            const unread = unreadCounts[`channel:${d}`] || 0;
+            return (
+              <li key={d}>
+                <button
+                  className={selected?.kind === "channel" && selected.department === d ? "active" : ""}
+                  onClick={() => onSelect({ kind: "channel", department: d })}
+                >
+                  # {d}
+                  {unread > 0 && <span className="unread-badge">{unread}</span>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
         <h3>Direct messages</h3>
         <ul>
-          {contacts.map((s) => (
-            <li key={s.id}>
-              <button
-                className={selected?.kind === "dm" && selected.staffId === s.id ? "active" : ""}
-                onClick={() => setSelected({ kind: "dm", staffId: s.id, name: s.displayName })}
-              >
-                {s.displayName}
-              </button>
-            </li>
-          ))}
+          {contacts.map((s) => {
+            const unread = unreadCounts[`dm:${s.id}`] || 0;
+            return (
+              <li key={s.id}>
+                <button
+                  className={selected?.kind === "dm" && selected.staffId === s.id ? "active" : ""}
+                  onClick={() => onSelect({ kind: "dm", staffId: s.id, name: s.displayName })}
+                >
+                  {s.displayName}
+                  {unread > 0 && <span className="unread-badge">{unread}</span>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
 

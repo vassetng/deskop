@@ -10,7 +10,7 @@ import IncomingGroupCallModal from "./components/IncomingGroupCallModal";
 import GroupCallView from "./components/GroupCallView";
 import Files from "./components/Files";
 import Directory from "./components/Directory";
-import Messages from "./components/Messages";
+import Messages, { Conversation, conversationKey } from "./components/Messages";
 import DailyReport from "./components/DailyReport";
 import AdminDashboard from "./components/AdminDashboard";
 import CallView from "./components/CallView";
@@ -28,7 +28,6 @@ type IncomingCallInvite = { fromId: string; fromName: string; withVideo: boolean
 type GroupParticipant = { id: string; name: string };
 type ActiveGroupCall = { callId: string; withVideo: boolean; session: GroupCallSession };
 type IncomingGroupInvite = { callId: string; fromName: string; withVideo: boolean };
-type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
 type Tab = "files" | "directory" | "messages" | "report" | "admin";
 
 export default function App() {
@@ -67,7 +66,9 @@ export default function App() {
   const [groupInvite, setGroupInvite] = useState<IncomingGroupInvite | null>(null);
   const [groupComposeOpen, setGroupComposeOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("files");
-  const [messagesTarget, setMessagesTarget] = useState<Conversation | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const openConversationKeyRef = useRef<string | null>(null);
 
   const rosterRef = useRef<StaffMember[]>([]);
   rosterRef.current = roster;
@@ -167,6 +168,25 @@ export default function App() {
       setStaff(null);
       setConnectError(err.message || "Could not connect");
     });
+
+    // App-wide, regardless of which tab is open, so a badge can appear on
+    // the Messages tab even while looking at Files/Directory/etc. Skips our
+    // own messages (the sender is echoed their own message:new too, since
+    // they're in the same room) and whichever conversation is actively open
+    // in the Messages tab right now.
+    socket.on(
+      "message:new",
+      (msg: { kind: "dm" | "channel"; target: string; fromId: string }) => {
+        const selfId = getSession()?.staff.id;
+        if (!selfId || msg.fromId === selfId) return;
+        const key =
+          msg.kind === "dm"
+            ? `dm:${msg.target.split(":").find((id) => id !== selfId)}`
+            : `channel:${msg.target}`;
+        if (openConversationKeyRef.current === key) return;
+        setUnreadCounts((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      }
+    );
 
     socket.on(
       "presence:roster",
@@ -428,6 +448,26 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [ringAckToast]);
 
+  // Whichever conversation is actually visible right now (Messages tab open
+  // AND that conversation selected) counts as read — its badge clears and
+  // new messages for it are suppressed from re-incrementing the badge while
+  // it stays open. Anything else (a different tab, or no selection) means
+  // no conversation is "open," so new messages count as unread again.
+  useEffect(() => {
+    if (tab === "messages" && selectedConversation) {
+      const key = conversationKey(selectedConversation);
+      openConversationKeyRef.current = key;
+      setUnreadCounts((prev) => {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } else {
+      openConversationKeyRef.current = null;
+    }
+  }, [tab, selectedConversation]);
+
   function handleLoggedIn() {
     setConnectError(null);
     setStaff(getSession()!.staff);
@@ -450,6 +490,9 @@ export default function App() {
     groupRemoteStreamsRef.current.clear();
     setGroupInvite(null);
     stopCallTone();
+    setSelectedConversation(null);
+    setUnreadCounts({});
+    openConversationKeyRef.current = null;
   }
 
   function handleRing(targetId: string) {
@@ -536,9 +579,9 @@ export default function App() {
     setIncomingRing(null);
   }
 
-  function handleMessageFromDirectory(staffId: string) {
+  function handleOpenDm(staffId: string) {
     const target = roster.find((s) => s.id === staffId);
-    setMessagesTarget({ kind: "dm", staffId, name: target?.name || "Staff" });
+    setSelectedConversation({ kind: "dm", staffId, name: target?.name || "Staff" });
     setTab("messages");
   }
 
@@ -558,6 +601,7 @@ export default function App() {
   }
 
   const onlineStaffIds = new Set(roster.map((r) => r.id));
+  const totalUnread = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
 
   return (
     <div className="app-shell">
@@ -582,6 +626,7 @@ export default function App() {
           selfId={staff.id}
           onRing={handleRing}
           onCall={handleCall}
+          onMessage={handleOpenDm}
           busy={isBusy()}
         />
         <div className="main-panel">
@@ -613,6 +658,7 @@ export default function App() {
                 </button>
                 <button className={tab === "messages" ? "active" : ""} onClick={() => setTab("messages")}>
                   Messages
+                  {totalUnread > 0 && <span className="unread-badge">{totalUnread}</span>}
                 </button>
                 <button className={tab === "report" ? "active" : ""} onClick={() => setTab("report")}>
                   Daily report
@@ -637,10 +683,16 @@ export default function App() {
                   onlineStaffIds={onlineStaffIds}
                   onRing={handleRing}
                   onCall={handleCall}
-                  onMessage={handleMessageFromDirectory}
+                  onMessage={handleOpenDm}
                 />
               )}
-              {tab === "messages" && <Messages initialConversation={messagesTarget} />}
+              {tab === "messages" && (
+                <Messages
+                  selected={selectedConversation}
+                  onSelect={setSelectedConversation}
+                  unreadCounts={unreadCounts}
+                />
+              )}
               {tab === "report" && <DailyReport />}
               {tab === "admin" && staff.role === "admin" && <AdminDashboard />}
             </>
