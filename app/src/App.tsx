@@ -517,6 +517,20 @@ export default function App() {
     getSocket().emit("group-call:invite", { participants: participantIds, video: withVideo });
   }
 
+  // Turns an ongoing 1:1 call into a group call: ends the 1:1 leg (the
+  // other side sees their call end, then gets rung again as a group
+  // invite — no mid-call renegotiation path exists for converting a
+  // CallSession into a GroupCallSession in place) and starts a fresh
+  // group call inviting both the existing peer and the new person.
+  function handleAddToGroupCall(newStaffId: string) {
+    if (!activeCall) return;
+    const { peerId, session } = activeCall;
+    const withVideo = session.withVideo;
+    session.hangup();
+    updateActiveCall(null);
+    getSocket().emit("group-call:invite", { participants: [peerId, newStaffId], video: withVideo });
+  }
+
   async function handleAcceptGroupCall() {
     if (!groupInvite) return;
     const { callId } = groupInvite;
@@ -642,8 +656,12 @@ export default function App() {
           ) : activeCall ? (
             <CallView
               session={activeCall.session}
+              peerId={activeCall.peerId}
               peerName={activeCall.peerName}
               withVideo={activeCall.session.withVideo}
+              onlineStaff={roster}
+              selfId={staff.id}
+              onAddToCall={handleAddToGroupCall}
               bindRemoteVideo={bindRemoteVideo}
               onEnd={() => updateActiveCall(null)}
             />

@@ -1,16 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { CallSession } from "../lib/webrtc";
+import { StaffMember } from "./Roster";
+import AddToCallModal from "./AddToCallModal";
 
 export default function CallView({
   session,
+  peerId,
   peerName,
   withVideo,
+  onlineStaff,
+  selfId,
+  onAddToCall,
   onEnd,
   bindRemoteVideo,
 }: {
   session: CallSession;
+  peerId: string;
   peerName: string;
   withVideo: boolean;
+  onlineStaff: StaffMember[];
+  selfId: string;
+  onAddToCall: (staffId: string) => void;
   onEnd: () => void;
   bindRemoteVideo: (el: HTMLVideoElement | null) => void;
 }) {
@@ -18,6 +28,7 @@ export default function CallView({
   const [sharingScreen, setSharingScreen] = useState(false);
   const [screenSources, setScreenSources] = useState<ScreenSource[] | null>(null);
   const [screenShareError, setScreenShareError] = useState<string | null>(null);
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
 
   useEffect(() => {
     // By the time CallView mounts, App.tsx has already awaited
@@ -96,7 +107,21 @@ export default function CallView({
         </div>
       )}
 
+      {addPickerOpen && (
+        <AddToCallModal
+          candidates={onlineStaff.filter((s) => s.id !== selfId && s.id !== peerId)}
+          onAdd={(staffId) => {
+            setAddPickerOpen(false);
+            onAddToCall(staffId);
+          }}
+          onCancel={() => setAddPickerOpen(false)}
+        />
+      )}
+
       <div className="call-controls">
+        <button onClick={() => setAddPickerOpen(true)} title="Add someone to this call">
+          ➕ Add to call
+        </button>
         <button
           onClick={toggleScreenShare}
           disabled={!withVideo}
