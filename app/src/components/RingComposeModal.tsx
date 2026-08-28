@@ -1,5 +1,13 @@
 import { useState } from "react";
 
+const PRETEXTS = [
+  "Come here",
+  "Get me water",
+  "Make me breakfast",
+  "Come with your laptop",
+  "Get me the cleaner",
+];
+
 export default function RingComposeModal({
   targetName,
   onSend,
@@ -23,10 +31,22 @@ export default function RingComposeModal({
         <p className="section-sub">
           This just gets their attention — they'll acknowledge it, it doesn't start a call.
         </p>
+        <div className="ring-pretexts">
+          {PRETEXTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={`pretext-chip ${message === p ? "active" : ""}`}
+              onClick={() => setMessage(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Optional message, e.g. Can you come to my desk?"
+          placeholder="Or type your own, e.g. Can you come to my desk?"
           rows={3}
           autoFocus
         />

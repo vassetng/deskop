@@ -45,9 +45,13 @@ export default function Files() {
     form.append("file", file);
     try {
       const res = await authFetch("/files/upload", { method: "POST", body: form });
-      if (!res.ok) throw new Error("Upload failed");
-    } catch {
-      setError(`Couldn't upload "${file.name}". Check your connection to the server and try again.`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Server rejected the upload (HTTP ${res.status}).`);
+      }
+    } catch (err: any) {
+      const reason = err?.message || "Check your connection to the server and try again.";
+      setError(`Couldn't upload "${file.name}": ${reason}`);
     } finally {
       setUploading(false);
     }

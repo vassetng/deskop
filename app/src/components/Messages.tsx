@@ -113,11 +113,15 @@ export default function Messages({ initialConversation }: { initialConversation:
       const form = new FormData();
       form.append("file", file);
       const res = await authFetch("/messages/attachments", { method: "POST", body: form });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Server rejected the upload (HTTP ${res.status}).`);
+      }
       const attachment: Attachment = await res.json();
       sendPayload("", attachment);
-    } catch {
-      setAttachError(`Couldn't send "${file.name}". Check your connection and try again.`);
+    } catch (err: any) {
+      const reason = err?.message || "Check your connection and try again.";
+      setAttachError(`Couldn't send "${file.name}": ${reason}`);
     } finally {
       setUploading(false);
     }

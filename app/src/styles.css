@@ -797,6 +797,32 @@ body {
   resize: vertical;
 }
 
+.ring-pretexts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pretext-chip {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #2c3038;
+  background: #12141a;
+  color: #c7cad1;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pretext-chip:hover {
+  border-color: #4a4f5a;
+}
+
+.pretext-chip.active {
+  background: #3b5bfd;
+  border-color: #3b5bfd;
+  color: #fff;
+}
+
 .ring-ack-toast {
   background: #12301f;
   color: #33d17a;
