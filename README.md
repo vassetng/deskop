@@ -173,6 +173,11 @@ privilege is not held by the client`, you have two options:
   only 1:1.
 - **Screen share**: during a call, click "Share screen" to swap your video feed for your screen;
   click again to switch back to your camera.
+- **Add to call**: during a 1:1 call, click "➕ Add to call" and pick another online person to
+  turn it into a group call. The 1:1 call ends and both the existing peer and the new person
+  are invited together as a group call — there's a brief moment where the current peer sees
+  their call end before being rung again for the group call (no in-place upgrade path exists
+  for a 1:1 call yet).
 - **Files**: drag a file onto the dropzone (or click it) to upload; it appears for everyone
   connected to the same server, with a Download link. Uploads are attributed to your logged-in
   account, not a typed name.
