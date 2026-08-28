@@ -11,6 +11,13 @@ import { resolveStaffFromToken } from "./auth.js";
 
 const CONNECTION_PASSWORD = process.env.CONNECTION_PASSWORD || null;
 
+// Group calls use mesh WebRTC (every participant connects directly to every
+// other participant) rather than an SFU — fine for a handful of people, not
+// meant to scale past that, hence the cap.
+const MAX_GROUP_PARTICIPANTS = 6;
+// callId -> { hostId, video, participants: Map<staffId, { name }> }
+const groupCalls = new Map();
+
 // Socket.io event dispatch isn't wrapped by Express's automatic error
 // handling — an uncaught throw in any handler here (a malformed payload, a
 // disk write failure, anything) would otherwise crash the whole process for
@@ -151,6 +158,121 @@ export function registerSocketHandlers(io) {
       })
     );
 
+    // --- Group calls: mesh WebRTC, several staff in one call. The host's
+    // "invite" creates the room (host is participant #1 immediately); each
+    // invitee that accepts is told who's already in and mesh-connects to
+    // each of them directly — offer/answer/ice below are the same relay
+    // pattern as 1:1 calls, just scoped by callId and fanned out per-pair.
+    socket.on(
+      "group-call:invite",
+      safe(({ participants, video } = {}) => {
+        if (!Array.isArray(participants) || participants.length === 0) return;
+        const targets = Array.from(new Set(participants.filter((id) => id && id !== staff.id))).slice(
+          0,
+          MAX_GROUP_PARTICIPANTS - 1
+        );
+        if (targets.length === 0) return;
+
+        const callId = crypto.randomUUID();
+        groupCalls.set(callId, {
+          hostId: staff.id,
+          video: !!video,
+          participants: new Map([[staff.id, { name: staff.displayName }]]),
+        });
+        socket.join(`call:${callId}`);
+        socket.emit("group-call:created", { callId, video: !!video });
+
+        for (const to of targets) {
+          io.to(`staff:${to}`).emit("group-call:invite", {
+            callId,
+            from: staff.id,
+            fromName: staff.displayName,
+            video: !!video,
+          });
+        }
+        logActivity("group-call:started", { from: staff.displayName, count: targets.length });
+      })
+    );
+
+    socket.on(
+      "group-call:accept",
+      safe(({ callId } = {}) => {
+        const call = groupCalls.get(callId);
+        if (!call) return;
+        if (call.participants.size >= MAX_GROUP_PARTICIPANTS) {
+          io.to(`staff:${call.hostId}`).emit("group-call:declined", {
+            callId,
+            from: staff.id,
+            fromName: staff.displayName,
+            reason: "full",
+          });
+          return;
+        }
+        const existing = Array.from(call.participants, ([id, v]) => ({ id, name: v.name }));
+        call.participants.set(staff.id, { name: staff.displayName });
+        socket.join(`call:${callId}`);
+        socket.emit("group-call:joined", { callId, video: call.video, participants: existing });
+        socket.to(`call:${callId}`).emit("group-call:peer-joined", {
+          callId,
+          peer: { id: staff.id, name: staff.displayName },
+        });
+      })
+    );
+
+    socket.on(
+      "group-call:decline",
+      safe(({ callId } = {}) => {
+        const call = groupCalls.get(callId);
+        if (!call) return;
+        io.to(`staff:${call.hostId}`).emit("group-call:declined", {
+          callId,
+          from: staff.id,
+          fromName: staff.displayName,
+        });
+      })
+    );
+
+    socket.on(
+      "group-call:offer",
+      safe(({ callId, to, offer, video } = {}) => {
+        if (!callId || !to || !offer) return;
+        io.to(`staff:${to}`).emit("group-call:offer", { callId, from: staff.id, offer, video: !!video });
+      })
+    );
+
+    socket.on(
+      "group-call:answer",
+      safe(({ callId, to, answer } = {}) => {
+        if (!callId || !to || !answer) return;
+        io.to(`staff:${to}`).emit("group-call:answer", { callId, from: staff.id, answer });
+      })
+    );
+
+    socket.on(
+      "group-call:ice",
+      safe(({ callId, to, candidate } = {}) => {
+        if (!callId || !to || !candidate) return;
+        io.to(`staff:${to}`).emit("group-call:ice", { callId, from: staff.id, candidate });
+      })
+    );
+
+    function leaveGroupCall(callId) {
+      const call = groupCalls.get(callId);
+      if (!call || !call.participants.has(staff.id)) return;
+      call.participants.delete(staff.id);
+      socket.leave(`call:${callId}`);
+      socket.to(`call:${callId}`).emit("group-call:peer-left", { callId, from: staff.id });
+      if (call.participants.size === 0) groupCalls.delete(callId);
+    }
+
+    socket.on(
+      "group-call:leave",
+      safe(({ callId } = {}) => {
+        if (!callId) return;
+        leaveGroupCall(callId);
+      })
+    );
+
     // --- Messaging: DMs + department channels ---
     socket.on(
       "message:send",
@@ -211,6 +333,7 @@ export function registerSocketHandlers(io) {
         removePresence(socket.id);
         io.emit("presence:roster", getPresenceRoster());
         logActivity("presence:offline", { staffId: staff.id, name: staff.displayName });
+        for (const callId of Array.from(groupCalls.keys())) leaveGroupCall(callId);
       })
     );
   });

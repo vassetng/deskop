@@ -5,6 +5,9 @@ import RingModal from "./components/RingModal";
 import RingComposeModal from "./components/RingComposeModal";
 import IncomingCallModal from "./components/IncomingCallModal";
 import OutgoingCallModal from "./components/OutgoingCallModal";
+import GroupCallComposeModal from "./components/GroupCallComposeModal";
+import IncomingGroupCallModal from "./components/IncomingGroupCallModal";
+import GroupCallView from "./components/GroupCallView";
 import Files from "./components/Files";
 import Directory from "./components/Directory";
 import Messages from "./components/Messages";
@@ -14,6 +17,7 @@ import CallView from "./components/CallView";
 import { connectSocket, disconnectSocket, getSocket } from "./lib/socket";
 import { getSession, logout, Staff } from "./lib/auth";
 import { CallSession } from "./lib/webrtc";
+import { GroupCallSession } from "./lib/groupCall";
 import logo from "./assets/logo.png";
 
 type IncomingRing = { fromId: string; fromName: string; message: string };
@@ -21,6 +25,9 @@ type RingTarget = { id: string; name: string };
 type ActiveCall = { session: CallSession; peerId: string; peerName: string };
 type OutgoingCall = { id: string; name: string; withVideo: boolean };
 type IncomingCallInvite = { fromId: string; fromName: string; withVideo: boolean };
+type GroupParticipant = { id: string; name: string };
+type ActiveGroupCall = { callId: string; withVideo: boolean; session: GroupCallSession };
+type IncomingGroupInvite = { callId: string; fromName: string; withVideo: boolean };
 type Conversation = { kind: "dm"; staffId: string; name: string } | { kind: "channel"; department: string };
 type Tab = "files" | "directory" | "messages" | "report" | "admin";
 
@@ -45,8 +52,20 @@ export default function App() {
   const activeCallRef = useRef<ActiveCall | null>(null);
   const [outgoingCall, setOutgoingCall] = useState<OutgoingCall | null>(null);
   const outgoingCallRef = useRef<OutgoingCall | null>(null);
-  const [incomingCallInvite, setIncomingCallInvite] = useState<IncomingCallInvite | null>(null);
+  const [incomingCallInvite, setIncomingCallInviteState] = useState<IncomingCallInvite | null>(null);
+  const incomingCallInviteRef = useRef<IncomingCallInvite | null>(null);
+  function setIncomingCallInvite(next: IncomingCallInvite | null) {
+    incomingCallInviteRef.current = next;
+    setIncomingCallInviteState(next);
+  }
   const callAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [groupCall, setGroupCall] = useState<ActiveGroupCall | null>(null);
+  const groupCallRef = useRef<ActiveGroupCall | null>(null);
+  const [groupParticipants, setGroupParticipants] = useState<GroupParticipant[]>([]);
+  const groupRemoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const [groupStreamsVersion, setGroupStreamsVersion] = useState(0);
+  const [groupInvite, setGroupInvite] = useState<IncomingGroupInvite | null>(null);
+  const [groupComposeOpen, setGroupComposeOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("files");
   const [messagesTarget, setMessagesTarget] = useState<Conversation | null>(null);
 
@@ -61,6 +80,20 @@ export default function App() {
   function updateOutgoingCall(next: OutgoingCall | null) {
     outgoingCallRef.current = next;
     setOutgoingCall(next);
+  }
+
+  function updateGroupCall(next: ActiveGroupCall | null) {
+    groupCallRef.current = next;
+    setGroupCall(next);
+  }
+
+  function isBusy(): boolean {
+    return !!(
+      activeCallRef.current ||
+      outgoingCallRef.current ||
+      incomingCallInviteRef.current ||
+      groupCallRef.current
+    );
   }
 
   function stopCallTone() {
@@ -228,8 +261,7 @@ export default function App() {
     socket.on(
       "call:invite",
       ({ from, fromName, video }: { from: string; fromName: string; video: boolean }) => {
-        // Already on a call or already have a pending invite/outgoing call: busy.
-        if (activeCallRef.current || outgoingCallRef.current) {
+        if (isBusy()) {
           getSocket().emit("call:decline", { to: from });
           return;
         }
@@ -254,13 +286,124 @@ export default function App() {
     });
 
     socket.on("call:cancel", ({ from }: { from: string }) => {
-      setIncomingCallInvite((current) => {
-        if (!current || current.fromId !== from) return current;
+      if (incomingCallInviteRef.current?.fromId === from) {
         stopCallTone();
-        return null;
-      });
+        setIncomingCallInvite(null);
+      }
     });
+
+    // --- Group calls: mesh WebRTC, several people in one call ---
+    socket.on(
+      "group-call:invite",
+      ({ callId, fromName, video }: { callId: string; from: string; fromName: string; video: boolean }) => {
+        if (isBusy()) {
+          getSocket().emit("group-call:decline", { callId });
+          return;
+        }
+        setGroupInvite({ callId, fromName, withVideo: video });
+        window.deskop?.notify("Deskop", `${fromName} invited you to a group call`);
+        playCallTone();
+      }
+    );
+
+    // Sent only to the host, right after they create the call — joins them
+    // in with nobody else there yet (invitees join in as they each accept).
+    socket.on("group-call:created", async ({ callId, video }: { callId: string; video: boolean }) => {
+      await joinGroupCall(callId, video, []);
+    });
+
+    // Sent only to an invitee once they've accepted — tells them who's
+    // already in so they can mesh-connect to each of them.
+    socket.on(
+      "group-call:joined",
+      async ({
+        callId,
+        video,
+        participants,
+      }: {
+        callId: string;
+        video: boolean;
+        participants: GroupParticipant[];
+      }) => {
+        await joinGroupCall(callId, video, participants);
+      }
+    );
+
+    socket.on("group-call:peer-joined", ({ callId, peer }: { callId: string; peer: GroupParticipant }) => {
+      if (groupCallRef.current?.callId !== callId) return;
+      setGroupParticipants((prev) => (prev.some((p) => p.id === peer.id) ? prev : [...prev, peer]));
+    });
+
+    socket.on(
+      "group-call:offer",
+      async ({ callId, from, offer }: { callId: string; from: string; offer: RTCSessionDescriptionInit }) => {
+        if (groupCallRef.current?.callId !== callId) return;
+        await groupCallRef.current.session.handleOffer(from, offer);
+      }
+    );
+
+    socket.on(
+      "group-call:answer",
+      async ({ callId, from, answer }: { callId: string; from: string; answer: RTCSessionDescriptionInit }) => {
+        if (groupCallRef.current?.callId !== callId) return;
+        await groupCallRef.current.session.handleAnswer(from, answer);
+      }
+    );
+
+    socket.on(
+      "group-call:ice",
+      async ({ callId, from, candidate }: { callId: string; from: string; candidate: RTCIceCandidateInit }) => {
+        if (groupCallRef.current?.callId !== callId) return;
+        await groupCallRef.current.session.handleIce(from, candidate);
+      }
+    );
+
+    socket.on("group-call:peer-left", ({ callId, from }: { callId: string; from: string }) => {
+      if (groupCallRef.current?.callId !== callId) return;
+      groupCallRef.current.session.removePeer(from);
+      groupRemoteStreamsRef.current.delete(from);
+      setGroupParticipants((prev) => prev.filter((p) => p.id !== from));
+      setGroupStreamsVersion((v) => v + 1);
+    });
+
+    socket.on(
+      "group-call:declined",
+      ({ fromName, reason }: { callId: string; from: string; fromName?: string; reason?: string }) => {
+        if (reason === "full") {
+          setCallError("That group call is already full.");
+        } else if (fromName) {
+          setCallError(`${fromName} declined the group call.`);
+        }
+      }
+    );
   }, []);
+
+  async function joinGroupCall(callId: string, withVideo: boolean, existing: GroupParticipant[]) {
+    const session = new GroupCallSession(callId, withVideo, {
+      onRemoteStream: (peerId, stream) => {
+        groupRemoteStreamsRef.current.set(peerId, stream);
+        setGroupStreamsVersion((v) => v + 1);
+      },
+      onPeerLeft: (peerId) => {
+        groupRemoteStreamsRef.current.delete(peerId);
+        setGroupParticipants((prev) => prev.filter((p) => p.id !== peerId));
+        setGroupStreamsVersion((v) => v + 1);
+      },
+    });
+    try {
+      await session.start();
+    } catch (err) {
+      console.error("Could not access camera/microphone for group call", err);
+      setCallError("Couldn't join — camera/microphone access failed.");
+      getSocket().emit("group-call:leave", { callId });
+      return;
+    }
+    updateGroupCall({ callId, withVideo, session });
+    setGroupParticipants(existing);
+    for (const p of existing) {
+      await session.offerTo(p.id);
+    }
+  }
 
   useEffect(() => {
     const existing = getSession()?.staff;
@@ -301,6 +444,11 @@ export default function App() {
     updateActiveCall(null);
     updateOutgoingCall(null);
     setIncomingCallInvite(null);
+    groupCallRef.current?.session.close();
+    updateGroupCall(null);
+    setGroupParticipants([]);
+    groupRemoteStreamsRef.current.clear();
+    setGroupInvite(null);
     stopCallTone();
   }
 
@@ -315,9 +463,37 @@ export default function App() {
   }
 
   function handleCall(targetId: string, withVideo: boolean) {
-    if (activeCall || outgoingCall || incomingCallInvite) return;
+    if (isBusy()) return;
     updateOutgoingCall({ id: targetId, name: nameFor(targetId), withVideo });
     getSocket().emit("call:invite", { to: targetId, video: withVideo });
+  }
+
+  function handleStartGroupCall(participantIds: string[], withVideo: boolean) {
+    if (isBusy() || participantIds.length === 0) return;
+    setGroupComposeOpen(false);
+    getSocket().emit("group-call:invite", { participants: participantIds, video: withVideo });
+  }
+
+  async function handleAcceptGroupCall() {
+    if (!groupInvite) return;
+    const { callId } = groupInvite;
+    setGroupInvite(null);
+    stopCallTone();
+    getSocket().emit("group-call:accept", { callId });
+  }
+
+  function handleDeclineGroupCall() {
+    if (!groupInvite) return;
+    getSocket().emit("group-call:decline", { callId: groupInvite.callId });
+    stopCallTone();
+    setGroupInvite(null);
+  }
+
+  function handleLeaveGroupCall() {
+    groupCallRef.current?.session.leave();
+    updateGroupCall(null);
+    setGroupParticipants([]);
+    groupRemoteStreamsRef.current.clear();
   }
 
   function handleCancelOutgoingCall() {
@@ -406,10 +582,19 @@ export default function App() {
           selfId={staff.id}
           onRing={handleRing}
           onCall={handleCall}
-          busy={!!activeCall || !!outgoingCall || !!incomingCallInvite}
+          busy={isBusy()}
         />
         <div className="main-panel">
-          {activeCall ? (
+          {groupCall ? (
+            <GroupCallView
+              session={groupCall.session}
+              withVideo={groupCall.withVideo}
+              selfName={staff.displayName}
+              participants={groupParticipants}
+              remoteStreams={groupRemoteStreamsRef.current}
+              onLeave={handleLeaveGroupCall}
+            />
+          ) : activeCall ? (
             <CallView
               session={activeCall.session}
               peerName={activeCall.peerName}
@@ -437,6 +622,14 @@ export default function App() {
                     Admin
                   </button>
                 )}
+                <button
+                  className="group-call-btn"
+                  disabled={isBusy()}
+                  onClick={() => setGroupComposeOpen(true)}
+                  title="Start a group call"
+                >
+                  👥 Group call
+                </button>
               </div>
               {tab === "files" && <Files />}
               {tab === "directory" && (
@@ -485,6 +678,24 @@ export default function App() {
           toName={outgoingCall.name}
           withVideo={outgoingCall.withVideo}
           onCancel={handleCancelOutgoingCall}
+        />
+      )}
+
+      {groupComposeOpen && (
+        <GroupCallComposeModal
+          onlineStaff={roster}
+          selfId={staff.id}
+          onStart={handleStartGroupCall}
+          onCancel={() => setGroupComposeOpen(false)}
+        />
+      )}
+
+      {groupInvite && (
+        <IncomingGroupCallModal
+          fromName={groupInvite.fromName}
+          withVideo={groupInvite.withVideo}
+          onAccept={handleAcceptGroupCall}
+          onDecline={handleDeclineGroupCall}
         />
       )}
 

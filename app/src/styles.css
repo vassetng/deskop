@@ -399,6 +399,22 @@ body {
   font-weight: 600;
 }
 
+.group-call-btn {
+  margin-left: auto;
+  background: #22252c;
+  color: #e6e8eb;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.group-call-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .section-sub {
   color: #9aa0a8;
   font-size: 0.88rem;
@@ -821,6 +837,71 @@ body {
   background: #3b5bfd;
   border-color: #3b5bfd;
   color: #fff;
+}
+
+.group-call-compose {
+  width: 400px;
+}
+
+.group-call-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid #2c3038;
+  border-radius: 8px;
+  background: #12141a;
+}
+
+.group-call-candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: #e6e8eb;
+  cursor: pointer;
+  padding: 0.3rem 0.2rem;
+}
+
+.group-call-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  max-width: 900px;
+}
+
+.group-tile {
+  position: relative;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-tile-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.group-tile-audio {
+  font-size: 2rem;
+}
+
+.group-tile-name {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.6rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: #e6e8eb;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
 }
 
 .ring-ack-toast {
