@@ -87,16 +87,23 @@ department and role there too) — change the default admin password from the sa
 built in yet, so at minimum create a new admin account and remove the default one once you're
 set up.
 
-### Connection password (for the "Online" mode)
+### Connection password (optional, any connect mode)
 
-If you expose the server beyond your LAN, set a shared connection password so only clients that
-know it can connect at all (checked before login, on every socket connection):
+Set a shared connection password so only clients that know it can connect at all (checked
+before login, on every socket connection):
 
 ```bash
 CONNECTION_PASSWORD=yourpassword npm run server
 ```
 
-Leave it unset for normal LAN use — no extra password is required by default.
+Leave it unset for normal LAN use — no extra password is required by default. The app's login
+screen has a Connection password field for both **WiFi/LAN** and **Online** modes — use it on
+a plain LAN address too if you've set one; it isn't Online-only.
+
+Note that **Online mode itself doesn't add HTTPS** — this server has no TLS support built in
+(plain HTTP only), so an `https://` address only works if you've put your own reverse proxy or
+tunnel in front of it that terminates TLS. For a private LAN/WiFi server (even one with a
+connection password), use the **WiFi/LAN** connect mode with a plain `http://` address instead.
 
 ## Website / download page
 
@@ -148,8 +155,8 @@ privilege is not held by the client`, you have two options:
 
 ## Using it
 
-- **Roster**: see everyone currently online in the left sidebar, with quick Ring/Audio/Video
-  buttons.
+- **Roster**: see everyone currently online in the left sidebar, with quick Message/Ring/Audio/Video
+  buttons — Message jumps straight to your DM with them.
 - **Ring**: a lightweight "come here" nudge, not a call — type an optional message ("Can you
   come to my desk?"), and it pops a full-screen alert + system notification + a looping tone on
   their screen. They just tap OK to acknowledge it (you get a brief "seen" confirmation); it
@@ -177,15 +184,19 @@ privilege is not held by the client`, you have two options:
   server-side, not just hidden in the UI. Click 📎 to attach a file to a DM or channel post —
   access to the attachment itself follows the same rule as the message it's on (only the two DM
   participants, or that department's members and admins), it's not visible from the general
-  Files tab.
+  Files tab. Unread conversations show a badge on the Messages tab and next to each
+  channel/DM in the list — it clears once you actually have that conversation open.
 - **Daily report**: each staff member can submit a short end-of-day report (tasks completed,
-  blockers, plan for tomorrow). Submitting again the same day updates that day's report rather
-  than creating a duplicate.
+  blockers, plan for tomorrow, an optional link to a doc/sheet/deliverable). Submitting again
+  the same day updates that day's report rather than creating a duplicate.
 - **Admin** (only visible to `admin`-role accounts):
   - **Overview** — online/total staff counts, today's report counts, a recent-activity feed
-    (logins, rings, calls, report submissions, account creation).
+    (logins, rings sent/acknowledged, calls started/answered, group calls, file shares, report
+    submissions, account creation).
   - **Reports** — everyone's reports for a chosen date, with a "Mark reviewed" toggle so you can
     track what's been read.
+  - **Scorecards** — per-staff daily-report punctuality over a rolling 30-weekday window:
+    on-time rate, current streak, and missed days.
   - **Staff** — create/remove staff accounts, set their department and role.
   - **Departments** — add/remove department channels.
 
