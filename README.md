@@ -158,6 +158,12 @@ privilege is not held by the client`, you have two options:
   call screen (with a ringing tone) and must tap **Accept** before anything connects — your
   camera/mic (and theirs) aren't touched until they do. You get a "Calling..." screen with
   Cancel while you wait; they can Decline instead.
+- **Group call**: click **👥 Group call** above the tabs, pick up to 5 online staff, choose
+  Audio or Video, and start it. Each person gets their own Accept/Decline invite and joins
+  independently — leaving doesn't end the call for everyone else. Capped at 6 participants
+  total (mesh WebRTC — everyone connects directly to everyone else, there's no media server —
+  so it doesn't scale further than that); screen sharing isn't available in group calls yet,
+  only 1:1.
 - **Screen share**: during a call, click "Share screen" to swap your video feed for your screen;
   click again to switch back to your camera.
 - **Files**: drag a file onto the dropzone (or click it) to upload; it appears for everyone
@@ -205,5 +211,6 @@ privilege is not held by the client`, you have two options:
 - Build macOS/Linux installers too (currently Windows-only; add `mac`/`linux` targets to the
   `build` config in `app/package.json` and matching `dist:mac`/`dist:linux` scripts).
 - Move file/message/report/staff storage to a real database instead of local JSON files.
-- Support group calls (needs an SFU, e.g. mediasoup/LiveKit, instead of mesh WebRTC).
+- Group calls use mesh WebRTC (capped at 6 participants); scaling past that needs an SFU, e.g.
+  mediasoup/LiveKit.
 - Granular per-feature permissions instead of just `admin`/`staff` roles, if needed.
