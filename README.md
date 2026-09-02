@@ -202,8 +202,17 @@ privilege is not held by the client`, you have two options:
     track what's been read.
   - **Scorecards** — per-staff daily-report punctuality over a rolling 30-weekday window:
     on-time rate, current streak, and missed days.
+  - **App usage** — per-staff foreground app and active/idle time for a chosen date (see
+    below).
   - **Staff** — create/remove staff accounts, set their department and role.
   - **Departments** — add/remove department channels.
+- **App-activity monitoring**: every ~60s the app reports which app is in the foreground and
+  whether the user has been idle for 5+ minutes — never a window title, URL, or any page/document
+  content. Staff see a permanent "ℹ️ Activity visible to admin" notice in the header while this
+  is active (Windows only, via a Win32 API call — no separate agent to install). Whether and how
+  you disclose this to staff beyond that in-app notice is a policy decision for you: monitoring
+  employee activity has real legal disclosure/consent requirements in many jurisdictions (GDPR in
+  the EU/UK, several US state laws), and this app doesn't handle that for you.
 
 ## Troubleshooting
 
