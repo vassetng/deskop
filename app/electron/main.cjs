@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Notification, ipcMain, desktopCapturer } = require("electron");
+const { app, BrowserWindow, Notification, ipcMain, desktopCapturer, powerMonitor } = require("electron");
 const path = require("path");
 const os = require("os");
 const dgram = require("dgram");
+const { execFile } = require("child_process");
 
 const DISCOVERY_PORT = 41234;
 const DISCOVERY_REQUEST = "DESKOP_DISCOVER";
@@ -61,6 +62,48 @@ ipcMain.handle("get-screen-sources", async () => {
     name: s.name,
     thumbnail: s.thumbnail.isEmpty() ? null : s.thumbnail.toDataURL(),
   }));
+});
+
+// App-activity monitoring (opt-in feature, admin-configured): reports only
+// the foreground process name (e.g. "chrome", "Code") plus system idle time
+// — never the window title, URL, or any page/document content, since that
+// could leak sensitive info far beyond "which app is in use". Windows-only,
+// same as the rest of this app; queried via a Win32 API call through
+// PowerShell rather than a native Node module, to avoid the native-binary
+// packaging complexity that comes with rebuilding for Electron's ABI.
+const ACTIVE_WINDOW_SCRIPT = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class DeskopNative {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+}
+"@
+$hwnd = [DeskopNative]::GetForegroundWindow()
+$procId = 0
+[DeskopNative]::GetWindowThreadProcessId($hwnd, [ref]$procId) | Out-Null
+try { (Get-Process -Id $procId -ErrorAction Stop).ProcessName } catch { "" }
+`;
+
+ipcMain.handle("get-active-app", () => {
+  if (process.platform !== "win32") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", ACTIVE_WINDOW_SCRIPT],
+      { timeout: 5000 },
+      (err, stdout) => {
+        if (err) return resolve(null);
+        const name = stdout.trim();
+        resolve(name || null);
+      }
+    );
+  });
+});
+
+ipcMain.handle("get-idle-seconds", () => {
+  return powerMonitor.getSystemIdleTime();
 });
 
 ipcMain.handle("discover-servers", () => {

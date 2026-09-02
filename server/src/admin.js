@@ -1,5 +1,5 @@
 import express from "express";
-import { getActivity, getAllStaff, getPresenceRoster, getReports } from "./store.js";
+import { getActivity, getAllStaff, getPresenceRoster, getReports, getUsageByDate } from "./store.js";
 import { authMiddleware, requireAdmin } from "./auth.js";
 
 function todayISO() {
@@ -88,6 +88,28 @@ export function createAdminRouter() {
   router.get("/scorecards", authMiddleware, requireAdmin, (_req, res) => {
     const allReports = getReports();
     res.json(getAllStaff().map((s) => buildScorecard(s, allReports)));
+  });
+
+  router.get("/app-usage", authMiddleware, requireAdmin, (req, res) => {
+    const date = req.query.date || todayISO();
+    const usage = getUsageByDate(date);
+    res.json(
+      getAllStaff().map((s) => {
+        const bucket = usage[s.id] || { apps: {}, activeSeconds: 0, idleSeconds: 0 };
+        const topApps = Object.entries(bucket.apps)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([appName, seconds]) => ({ appName, seconds }));
+        return {
+          staffId: s.id,
+          name: s.displayName,
+          department: s.department,
+          activeSeconds: bucket.activeSeconds,
+          idleSeconds: bucket.idleSeconds,
+          topApps,
+        };
+      })
+    );
   });
 
   return router;

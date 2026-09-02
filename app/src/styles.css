@@ -205,6 +205,12 @@ body {
   font-size: 0.85rem;
 }
 
+.activity-notice {
+  color: #6b7078;
+  font-size: 0.75rem;
+  cursor: default;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -1229,6 +1235,27 @@ body {
 
 .scorecard-stats .stat-value {
   font-size: 1.2rem;
+}
+
+.app-usage-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.app-usage-list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #1c1f26;
+}
+
+.app-usage-list li:last-child {
+  border-bottom: none;
 }
 
 .section-heading {

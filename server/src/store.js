@@ -9,6 +9,7 @@ const REPORTS_DB = path.join(DATA_DIR, "reports.json");
 const STAFF_DB = path.join(DATA_DIR, "staff.json");
 const DEPARTMENTS_DB = path.join(DATA_DIR, "departments.json");
 const MESSAGES_DB = path.join(DATA_DIR, "messages.json");
+const USAGE_DB = path.join(DATA_DIR, "usage.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -260,4 +261,30 @@ export function logActivity(type, detail) {
 
 export function getActivity() {
   return activity.slice().reverse();
+}
+
+// --- App-activity monitoring (admin-facing productivity view) ---
+// Only ever receives a foreground process name and an idle/active flag from
+// the client (see app/electron/main.cjs) — never a window title, URL, or
+// page content — polled roughly every HEARTBEAT_SECONDS, so counts are an
+// approximation bucketed by that interval, not a precise stopwatch.
+let usage = loadJson(USAGE_DB, {});
+const HEARTBEAT_SECONDS = 60;
+
+export function recordActivityHeartbeat(staffId, appName, idle) {
+  const date = new Date().toISOString().slice(0, 10);
+  if (!usage[date]) usage[date] = {};
+  if (!usage[date][staffId]) usage[date][staffId] = { apps: {}, activeSeconds: 0, idleSeconds: 0 };
+  const bucket = usage[date][staffId];
+  if (idle) {
+    bucket.idleSeconds += HEARTBEAT_SECONDS;
+  } else {
+    bucket.activeSeconds += HEARTBEAT_SECONDS;
+    if (appName) bucket.apps[appName] = (bucket.apps[appName] || 0) + HEARTBEAT_SECONDS;
+  }
+  saveJson(USAGE_DB, usage);
+}
+
+export function getUsageByDate(date) {
+  return usage[date] || {};
 }

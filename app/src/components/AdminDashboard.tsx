@@ -27,6 +27,22 @@ type Scorecard = {
   submittedToday: boolean;
 };
 
+type AppUsage = {
+  staffId: string;
+  name: string;
+  department: string;
+  activeSeconds: number;
+  idleSeconds: number;
+  topApps: { appName: string; seconds: number }[];
+};
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  if (h === 0 && m === 0) return "0m";
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 type Report = {
   id: string;
   authorName: string;
@@ -75,12 +91,16 @@ function describeActivity(entry: ActivityEntry): string {
 }
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "reports" | "scorecards" | "staff" | "departments">("overview");
+  const [tab, setTab] = useState<
+    "overview" | "reports" | "scorecards" | "app-usage" | "staff" | "departments"
+  >("overview");
   const [stats, setStats] = useState<Stats | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [reportDate, setReportDate] = useState(todayISO());
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);
+  const [appUsage, setAppUsage] = useState<AppUsage[]>([]);
+  const [appUsageDate, setAppUsageDate] = useState(todayISO());
   const [staff, setStaff] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
 
@@ -95,6 +115,10 @@ export default function AdminDashboard() {
 
   function loadScorecards() {
     authFetch("/admin/scorecards").then((r) => r.json()).then(setScorecards).catch(() => {});
+  }
+
+  function loadAppUsage(date: string) {
+    authFetch(`/admin/app-usage?date=${date}`).then((r) => r.json()).then(setAppUsage).catch(() => {});
   }
 
   function loadStaff() {
@@ -114,7 +138,8 @@ export default function AdminDashboard() {
     if (tab === "reports") loadReports(reportDate);
     if (tab === "staff") loadStaff();
     if (tab === "scorecards") loadScorecards();
-  }, [tab, reportDate]);
+    if (tab === "app-usage") loadAppUsage(appUsageDate);
+  }, [tab, reportDate, appUsageDate]);
 
   async function markReportStatus(id: string, status: "new" | "reviewed") {
     await authFetch(`/reports/${id}/status`, {
@@ -136,6 +161,9 @@ export default function AdminDashboard() {
         </button>
         <button className={tab === "scorecards" ? "active" : ""} onClick={() => setTab("scorecards")}>
           Scorecards
+        </button>
+        <button className={tab === "app-usage" ? "active" : ""} onClick={() => setTab("app-usage")}>
+          App usage
         </button>
         <button className={tab === "staff" ? "active" : ""} onClick={() => setTab("staff")}>
           Staff
@@ -274,6 +302,46 @@ export default function AdminDashboard() {
                     <span className="stat-label">Days submitted</span>
                   </div>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {tab === "app-usage" && (
+        <div>
+          <div className="admin-reports-header">
+            <h2>App usage</h2>
+            <input type="date" value={appUsageDate} onChange={(e) => setAppUsageDate(e.target.value)} />
+          </div>
+          <p className="section-sub">
+            Foreground app and idle/active time only — window titles, URLs, and page content are
+            never captured. Counts are approximate (polled every ~60s).
+          </p>
+          {appUsage.length === 0 && <p className="empty">No staff accounts yet.</p>}
+          <ul className="report-list">
+            {appUsage.map((u) => (
+              <li key={u.staffId} className="report-card">
+                <div className="report-card-header">
+                  <strong>
+                    {u.name} <span className="meta">· {u.department}</span>
+                  </strong>
+                  <span className="meta">
+                    {formatDuration(u.activeSeconds)} active · {formatDuration(u.idleSeconds)} idle
+                  </span>
+                </div>
+                {u.topApps.length === 0 ? (
+                  <p className="empty">No activity recorded for this date.</p>
+                ) : (
+                  <ul className="app-usage-list">
+                    {u.topApps.map((a) => (
+                      <li key={a.appName}>
+                        <span>{a.appName}</span>
+                        <span className="meta">{formatDuration(a.seconds)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

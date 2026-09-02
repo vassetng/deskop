@@ -9,5 +9,7 @@ interface Window {
     getOsUsername: () => Promise<string | null>;
     discoverServers: () => Promise<DiscoveredServer[]>;
     getScreenSources: () => Promise<ScreenSource[]>;
+    getActiveApp: () => Promise<string | null>;
+    getIdleSeconds: () => Promise<number>;
   };
 }

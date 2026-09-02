@@ -448,6 +448,25 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [ringAckToast]);
 
+  // App-activity heartbeat (admin-visible productivity view): reports only
+  // the foreground app's process name and idle/active state, every 60s —
+  // never a window title, URL, or page content. Electron-only (no-op in a
+  // plain browser tab, where window.deskop doesn't exist).
+  useEffect(() => {
+    if (!staff || !window.deskop) return;
+    const IDLE_THRESHOLD_SECONDS = 300;
+    const sendHeartbeat = async () => {
+      const [appName, idleSeconds] = await Promise.all([
+        window.deskop!.getActiveApp(),
+        window.deskop!.getIdleSeconds(),
+      ]);
+      getSocket().emit("activity:heartbeat", { appName, idle: idleSeconds >= IDLE_THRESHOLD_SECONDS });
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 60000);
+    return () => clearInterval(interval);
+  }, [staff]);
+
   // Whichever conversation is actually visible right now (Messages tab open
   // AND that conversation selected) counts as read — its badge clears and
   // new messages for it are suppressed from re-incrementing the badge while
@@ -625,6 +644,14 @@ export default function App() {
           <h1>Deskop</h1>
         </div>
         <div className="header-right">
+          {window.deskop && (
+            <span
+              className="activity-notice"
+              title="Your admin can see your active app and idle/active time for productivity reporting. No window titles, URLs, or page content are ever captured."
+            >
+              ℹ️ Activity visible to admin
+            </span>
+          )}
           <span className="self-name">
             {staff.displayName} · {staff.department}
           </span>

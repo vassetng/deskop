@@ -5,4 +5,6 @@ contextBridge.exposeInMainWorld("deskop", {
   getOsUsername: () => ipcRenderer.invoke("get-os-username"),
   discoverServers: () => ipcRenderer.invoke("discover-servers"),
   getScreenSources: () => ipcRenderer.invoke("get-screen-sources"),
+  getActiveApp: () => ipcRenderer.invoke("get-active-app"),
+  getIdleSeconds: () => ipcRenderer.invoke("get-idle-seconds"),
 });

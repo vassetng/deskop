@@ -6,6 +6,7 @@ import {
   addMessage,
   dmKey,
   logActivity,
+  recordActivityHeartbeat,
 } from "./store.js";
 import { resolveStaffFromToken } from "./auth.js";
 
@@ -273,6 +274,13 @@ export function registerSocketHandlers(io) {
       safe(({ callId } = {}) => {
         if (!callId) return;
         leaveGroupCall(callId);
+      })
+    );
+
+    socket.on(
+      "activity:heartbeat",
+      safe(({ appName, idle } = {}) => {
+        recordActivityHeartbeat(staff.id, typeof appName === "string" ? appName.slice(0, 100) : null, !!idle);
       })
     );
 
